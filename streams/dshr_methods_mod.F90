@@ -28,6 +28,7 @@ module dshr_methods_mod
   public :: dshr_field_getfldptr
   public :: chkerr
   public :: memcheck
+  public :: dshr_cal_aligndow  ! Align dates to day of week
 
   character(len=1024) :: msgString
   integer, parameter  :: memdebug_level=1
@@ -628,5 +629,79 @@ contains
        chkerr = .true.
     endif
   end function chkerr
+
+  !===============================================================================
+  subroutine dshr_cal_aligndow(year, month, day, target_dow, aligned_ymd)
+    ! Aligns a date to the closest matching day of week
+    ! target_dow: 0=Sunday, 1=Monday, ..., 6=Saturday
+    ! For weekday targets (1-5), aligns to closest weekday
+    ! For weekend targets (0,6), aligns to closest weekend day
+    integer, intent(in)  :: year, month, day   ! Input date
+    integer, intent(in)  :: target_dow         ! Target day of week
+    integer, intent(out) :: aligned_ymd        ! Aligned date in YYYYMMDD format
+
+    integer :: current_dow, delta_days
+    integer :: work_year, work_month, work_day
+    logical :: target_is_weekend, current_is_weekend
+
+    work_year = year
+    work_month = month
+    work_day = day
+
+    ! Get current day of week
+    call shr_cal_getdayofweek(work_year, work_month, work_day, current_dow)
+
+    ! Determine if target and current days are weekends
+    target_is_weekend = (target_dow == 0 .or. target_dow == 6)
+    current_is_weekend = (current_dow == 0 .or. current_dow == 6)
+
+    if (target_is_weekend) then
+      if (.not. current_is_weekend) then
+        ! Current is weekday, find closest weekend day
+        if (target_dow == 0) then  ! Target is Sunday
+          if (current_dow < 3) then
+            delta_days = -current_dow  ! Go back to previous Sunday
+          else
+            delta_days = 6 - current_dow  ! Go forward to next Saturday
+          endif
+        else  ! Target is Saturday
+          if (current_dow < 4) then
+            delta_days = -(current_dow + 1)  ! Go back to previous Saturday
+          else
+            delta_days = 6 - current_dow  ! Go forward to next Saturday
+          endif
+        endif
+      else
+        ! Current is already weekend, use standard alignment
+        delta_days = modulo(target_dow - current_dow, 7)
+        if (delta_days > 3) delta_days = delta_days - 7  ! Use shorter path
+      endif
+    else
+      if (current_is_weekend) then
+        ! Current is weekend, move to closest weekday
+        if (current_dow == 0) then  ! Sunday
+          delta_days = 1  ! Move to Monday
+        else  ! Saturday
+          delta_days = -1  ! Move to Friday
+        endif
+      else
+        ! Both are weekdays, find closest match
+        delta_days = target_dow - current_dow
+        if (abs(delta_days) > 2) then
+          ! Take shorter path around the weekend
+          if (delta_days > 0) then
+            delta_days = delta_days - 5
+          else
+            delta_days = delta_days + 5
+          endif
+        endif
+      endif
+    endif
+
+    ! Apply the calculated shift
+    call shr_cal_advdate(delta_days, work_year, work_month, work_day)
+    aligned_ymd = work_year*10000 + work_month*100 + work_day
+
+  end subroutine dshr_cal_aligndow
 
 end module dshr_methods_mod

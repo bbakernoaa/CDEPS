@@ -109,6 +109,7 @@ module dshr_strdata_mod
      real(r8)                            :: dtmax = 0.0_r8
      logical                             :: override_annual_cycle = .false.
      type(ESMF_Field)                    :: field_coszen                    ! needed for coszen time interp
+     logical                             :: align_dow = .false.             ! align to day of week
   end type shr_strdata_perstream
 
   type shr_strdata_type
@@ -602,6 +603,9 @@ contains
              call shr_sys_abort('ERROR: map algo '//trim(sdat%stream(ns)%mapalgo)//' is not supported')
           end if
        end if
+
+       ! Copy align_dow setting from stream to per_stream
+       sdat%pstrm(ns)%align_dow = sdat%stream(ns)%align_dow
 
     end do ! end of loop over streams
 
@@ -1334,6 +1338,7 @@ contains
     character(*), parameter              :: subname = '(shr_strdata_readLBUB) '
     character(*), parameter              :: F00   = "('(shr_strdata_readLBUB) ',8a)"
     character(*), parameter              :: F01   = "('(shr_strdata_readLBUB) ',a,5i8)"
+    integer                              :: year, month, day, model_dow, stream_dow, delta_days
     !-------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
@@ -1363,6 +1368,23 @@ contains
     rDateUB = real(sdat%pstrm(ns)%ymdUB,r8) + real(sdat%pstrm(ns)%todUB,r8)/shr_const_cday
 
     call ESMF_TraceRegionExit(trim(istr)//'_setup')
+
+    ! Add before finding bounds
+    if (sdat%pstrm(ns)%align_dow) then
+       ! Get day of week for model date
+       call shr_cal_date2ymd(mDate, year, month, day)
+       call shr_cal_getdayofweek(year, month, day, model_dow)
+
+       ! Get day of week for stream data
+       call shr_cal_date2ymd(sdat%pstrm(ns)%ymdLB, year, month, day)
+       call shr_cal_getdayofweek(year, month, day, stream_dow)
+
+       ! Adjust dates to align days of week if needed
+       if (model_dow /= stream_dow) then
+          delta_days = modulo(model_dow - stream_dow, 7)
+          call shr_cal_ymd2date(year, month, day + delta_days, sdat%pstrm(ns)%ymdLB)
+       endif
+    endif
 
     ! if model current date is outside of model lower or upper bound - find the stream bounds
     find_bounds = (rDateM < rDateLB .or. rDateM >= rDateUB)
@@ -2147,5 +2169,21 @@ contains
        if (found) exit
     end do
   end subroutine shr_strdata_get_stream_pointer_2d
+
+  !===============================================================================
+  subroutine shr_cal_getdayofweek(year, month, day, dow)
+    integer, intent(in)  :: year, month, day
+    integer, intent(out) :: dow
+
+    integer :: a, y, m
+
+    a = (14 - month) / 12
+    y = year - a
+    m = month + 12 * a - 2
+
+    ! Zeller's congruence algorithm
+    ! Returns 0=Sunday, 1=Monday, ..., 6=Saturday
+    dow = modulo(day + y + y/4 - y/100 + y/400 + (31*m)/12, 7)
+  end subroutine shr_cal_getdayofweek
 
 end module dshr_strdata_mod

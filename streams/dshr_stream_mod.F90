@@ -133,6 +133,7 @@ module dshr_stream_mod
      type(shr_stream_data_variable), allocatable :: varlist(:)  ! stream variable names (on file and in model)
      integer           :: src_mask_val = 0                      ! mask value for src mesh
      integer           :: dst_mask_val = 0                      ! mask value for dst mesh
+     logical           :: align_dow = .false.                   ! align to day of week
   end type shr_stream_streamType
 
   !----- parameters -----
@@ -447,7 +448,7 @@ contains
        stream_yearFirst, stream_yearLast, stream_yearAlign, &
        stream_offset, stream_taxmode, stream_tintalgo, stream_dtlimit, &
        stream_fldlistFile, stream_fldListModel, stream_fileNames, &
-       logunit, compname, stream_src_mask_val, stream_dst_mask_val)
+       logunit, compname, stream_src_mask_val, stream_dst_mask_val, align_dow)
 
     ! --------------------------------------------------------
     ! set values of stream datatype independent of a reading in a stream text file
@@ -476,6 +477,7 @@ contains
     character(len=*)            ,intent(in)              :: compname               ! component name (e.g. ATM, OCN...)
     integer                     ,optional, intent(in)    :: stream_src_mask_val    ! source mask value
     integer                     ,optional, intent(in)    :: stream_dst_mask_val    ! destination mask value
+    logical, optional, intent(in) :: align_dow           ! Align to day of week
 
     ! local variables
     integer                :: n
@@ -546,6 +548,11 @@ contains
     ! Set source and destination mask
     if (present(stream_src_mask_val)) streamdat(1)%src_mask_val = stream_src_mask_val
     if (present(stream_dst_mask_val)) streamdat(1)%dst_mask_val = stream_dst_mask_val
+
+    ! Set align_dow if present
+    if (present(align_dow)) then
+      streamdat(1)%align_dow = align_dow
+    endif
 
     ! Initialize flag that stream has been set
     streamdat(1)%init = .true.
@@ -1946,7 +1953,7 @@ contains
 
              ! read in filename
              rcode = pio_get_var(pioid, varid, (/1,n,k/), fname)
-             
+
              if(trim(fname) /= trim(streams(k)%file(n)%name)) then
                 write(logunit,*) 'Filename does not match restart record, checking realpath'
                 call shr_file_get_real_path(fname, rfname)
