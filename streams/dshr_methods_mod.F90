@@ -13,6 +13,7 @@ module dshr_methods_mod
   use ESMF         , only : ESMF_TERMORDER_SRCSEQ, operator(/=)
   use ESMF         , only : ESMF_TraceRegionEnter, ESMF_TraceRegionExit
   use shr_kind_mod , only : r8=>shr_kind_r8, cs=>shr_kind_cs, cl=>shr_kind_cl
+  ! Remove shr_cal_mod dependency since we'll implement locally
 
   implicit none
   public
@@ -29,6 +30,9 @@ module dshr_methods_mod
   public :: chkerr
   public :: memcheck
   public :: dshr_cal_aligndow  ! Align dates to day of week
+
+  private :: get_day_of_week  ! Local implementation
+  private :: advance_date     ! Local implementation
 
   character(len=1024) :: msgString
   integer, parameter  :: memdebug_level=1
@@ -648,8 +652,8 @@ contains
     work_month = month
     work_day = day
 
-    ! Get current day of week
-    call shr_cal_getdayofweek(work_year, work_month, work_day, current_dow)
+    ! Get current day of week using local implementation
+    current_dow = get_day_of_week(work_year, work_month, work_day)
 
     ! Determine if target and current days are weekends
     target_is_weekend = (target_dow == 0 .or. target_dow == 6)
@@ -673,7 +677,7 @@ contains
         endif
       else
         ! Current is already weekend, use standard alignment
-        delta_days = modulo(target_dow - current_dow, 7)
+        delta_days = mod(target_dow - current_dow, 7)
         if (delta_days > 3) delta_days = delta_days - 7  ! Use shorter path
       endif
     else
@@ -698,10 +702,93 @@ contains
       endif
     endif
 
-    ! Apply the calculated shift
-    call shr_cal_advdate(delta_days, work_year, work_month, work_day)
+    ! Apply the calculated shift using local implementation
+    call advance_date(delta_days, work_year, work_month, work_day)
     aligned_ymd = work_year*10000 + work_month*100 + work_day
 
   end subroutine dshr_cal_aligndow
+
+  !===============================================================================
+  function get_day_of_week(year, month, day) result(dow)
+    ! Returns day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+    ! Using Zeller's congruence algorithm
+    integer, intent(in) :: year, month, day
+    integer :: dow, m, y, k, d
+
+    if (month <= 2) then
+      m = month + 12
+      y = year - 1
+    else
+      m = month
+      y = year
+    endif
+
+    k = mod(y, 100)
+    y = y / 100
+
+    d = day + ((13*(m+1))/5) + k + (k/4) + (y/4) - 2*y
+    dow = mod(d+77, 7)  ! Adjust to make Sunday = 0
+
+  end function get_day_of_week
+
+  !===============================================================================
+  subroutine advance_date(delta_days, year, month, day)
+    ! Advance or retreat a date by specified number of days
+    integer, intent(in)    :: delta_days
+    integer, intent(inout) :: year, month, day
+
+    integer :: days_in_month(12) = (/31,28,31,30,31,30,31,31,30,31,30,31/)
+    integer :: remaining_days, dir
+
+    ! Handle leap years
+    if (mod(year,4) == 0 .and. (mod(year,100) /= 0 .or. mod(year,400) == 0)) then
+      days_in_month(2) = 29
+    endif
+
+    remaining_days = delta_days
+    dir = sign(1, delta_days)
+
+    do while (abs(remaining_days) > 0)
+      if (dir > 0) then
+        ! Moving forward in time
+        if (day + 1 > days_in_month(month)) then
+          day = 1
+          if (month == 12) then
+            month = 1
+            year = year + 1
+            ! Update February for new year
+            days_in_month(2) = 28
+            if (mod(year,4) == 0 .and. (mod(year,100) /= 0 .or. mod(year,400) == 0)) then
+              days_in_month(2) = 29
+            endif
+          else
+            month = month + 1
+          endif
+        else
+          day = day + 1
+        endif
+      else
+        ! Moving backward in time
+        if (day - 1 < 1) then
+          if (month == 1) then
+            month = 12
+            year = year - 1
+            ! Update February for new year
+            days_in_month(2) = 28
+            if (mod(year,4) == 0 .and. (mod(year,100) /= 0 .or. mod(year,400) == 0)) then
+              days_in_month(2) = 29
+            endif
+          else
+            month = month - 1
+          endif
+          day = days_in_month(month)
+        else
+          day = day - 1
+        endif
+      endif
+      remaining_days = remaining_days - dir
+    end do
+
+  end subroutine advance_date
 
 end module dshr_methods_mod
