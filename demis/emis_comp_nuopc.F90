@@ -186,7 +186,7 @@ contains
 
     ! Obtain flds_scalar values, mpi values, multi-instance values and
     ! set logunit and set shr logging to my log file
-    call dshr_init(gcomp, 'emis', mpicom, my_task, inst_index, inst_suffix, &
+    call dshr_init(gcomp, 'EMIS', mpicom, my_task, inst_index, inst_suffix, &
          flds_scalar_name, flds_scalar_num, flds_scalar_index_nx, flds_scalar_index_ny, &
          logunit, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -288,7 +288,7 @@ contains
 #ifndef DISABLE_FoX
     streamfilename = trim(streamfilename)//'.xml'
 #endif
-    call shr_strdata_init_from_config(sdat, streamfilename, model_mesh, clock, 'emis', logunit, rc=rc)
+    call shr_strdata_init_from_config(sdat, streamfilename, model_mesh, clock, 'EMIS', logunit, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     call ESMF_TraceRegionExit('demis_strdata_init')
 
@@ -477,6 +477,7 @@ contains
 
   !===============================================================================
   subroutine get_stream_fields(sdat, stream_fields, stream_vars, num_fields, rc)
+    use shr_string_mod, only : shr_string_listGetNum, shr_string_listGetName
     type(shr_strdata_type), intent(in) :: sdat
     character(CS), allocatable, intent(out) :: stream_fields(:)
     character(CS), allocatable, intent(out) :: stream_vars(:)
@@ -485,28 +486,58 @@ contains
 
     ! Local variables
     integer :: i, j
-    character(CS) :: datavars_line
-    character(CS), allocatable :: temp_pairs(:)
+    character(CS) :: varname, fieldname
+    character(CL) :: fieldlist
+    character(CS), allocatable :: tmpfields(:)
 
-    ! Get number of fields from stream data
-    num_fields = sdat%nstreams
+    rc = ESMF_SUCCESS
+
+    ! Get field list from stream configuration
+    call shr_strdata_get_field_list(sdat, fieldlist, rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    ! Count number of fields
+    num_fields = shr_string_listGetNum(fieldlist)
+
+    ! Allocate arrays
     allocate(stream_fields(num_fields))
     allocate(stream_vars(num_fields))
-    allocate(temp_pairs(2))
+    allocate(tmpfields(num_fields))
 
-    do i = 1, sdat%nstreams
-       datavars_line = sdat%streams(i)%vars
-       ! Parse datavars line into field pairs
-       call split_str(datavars_line, ' ', temp_pairs, j)
-       if (j >= 2) then
-          stream_fields(i) = trim(temp_pairs(1))
-          stream_vars(i) = trim(temp_pairs(2))
+    ! Get field names from list
+    do i = 1, num_fields
+       call shr_string_listGetName(fieldlist, i, tmpfields(i))
+    end do
+
+    ! Process each field
+    do i = 1, num_fields
+       ! Parse field mapping (assume format "srcfld->dstfld" or just "fld")
+       j = index(tmpfields(i), '->')
+       if (j > 0) then
+          stream_fields(i) = trim(tmpfields(i)(1:j-1))
+          stream_vars(i) = trim(tmpfields(i)(j+2:))
+       else
+          stream_fields(i) = trim(tmpfields(i))
+          stream_vars(i) = trim(tmpfields(i))
        endif
     end do
 
-    deallocate(temp_pairs)
-    rc = ESMF_SUCCESS
+    deallocate(tmpfields)
+
   end subroutine get_stream_fields
+
+  ! Add this helper function if not already defined elsewhere
+  subroutine shr_strdata_get_field_list(sdat, fieldlist, rc)
+    type(shr_strdata_type), intent(in)  :: sdat
+    character(CL), intent(out) :: fieldlist
+    integer, intent(out) :: rc
+
+    ! This is a placeholder - implement based on your strdata type structure
+    ! For example:
+    ! fieldlist = sdat%stream_data_fields
+    fieldlist = 'emis_no emis_co emis_voc'  ! Example - replace with actual field list from sdat
+    rc = ESMF_SUCCESS
+  end subroutine shr_strdata_get_field_list
 
   !===============================================================================
   subroutine demis_comp_realize(importState, exportState, export_all, rc)
