@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<field_dictionary>
+  <field name="NOx">
+    <standard_name>NOx</standard_name>
+    <units>kg m-2 s-1</units>
+  </field>
+  <field name="CO">
+    <standard_name>CO</standard_name>
+    <units>kg m-2 s-1</units>
+  </field>
+  <field name="Dust_Flux">
+    <standard_name>Dust_Flux</standard_name>
+    <units>kg m-2 s-1</units>
+  </field>
+</field_dictionary>
