@@ -24,7 +24,7 @@ module cdeps_dems_comp
   use NUOPC_Model      , only : model_label_SetRunClock => label_SetRunClock
   use NUOPC_Model      , only : model_label_Finalize    => label_Finalize
   use NUOPC_Model      , only : NUOPC_ModelGet, setVM
-  use shr_kind_mod     , only : r8=>shr_kind_r8, i8=>shr_kind_i8, cl=>shr_kind_cl, cx=>shr_kind_cx
+  use shr_kind_mod     , only : r8=>shr_kind_r8, i8=>shr_kind_i8, cl=>shr_kind_cl, cx=>shr_kind_cx, cs=>shr_kind_cs
   use shr_log_mod      , only : shr_log_setLogUnit, shr_log_error
   use shr_cal_mod      , only : shr_cal_ymd2date
   use shr_string_mod   , only : shr_string_toLower
@@ -213,21 +213,9 @@ contains
     call NUOPC_FieldDictionaryAddEntry(standardName='Total_NOx', units='kg m-2 s-1', rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-    ! Advertise fields: NOx, CO, Dust_Flux, Total_NOx
-    call dshr_fldList_add(fldsExport, 'NOx')
-    call dshr_fldList_add(fldsExport, 'CO')
-    call dshr_fldList_add(fldsExport, 'Dust_Flux')
-    call dshr_fldList_add(fldsExport, 'Total_NOx')
-
-    block
-      type(fldlist_type), pointer :: fld
-      fld => fldsExport
-      do while (associated(fld))
-         call NUOPC_Advertise(exportState, standardName=fld%stdname, rc=rc)
-         if (chkerr(rc,__LINE__,u_FILE_u)) return
-         fld => fld%next
-      end do
-    end block
+    ! Dynamically advertise fields based on streams
+    call dems_advertise_fields(gcomp, exportState, rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
 
   end subroutine InitializeAdvertise
 
@@ -264,7 +252,7 @@ contains
 #endif
     sdat%mainproc = mainproc
 
-#ifdef DISABLE_FoX
+#ifndef DISABLE_FoX
     call shr_stream_init_from_xml(streamfilename, sdat%stream, sdat%mainproc, logunit, &
          sdat%pio_subsystem, sdat%io_type, sdat%io_format, 'DEMS', rc=rc)
 #else
@@ -369,11 +357,29 @@ contains
     if (first_time) then
        block
          type(fldlist_type), pointer :: fld
+         integer :: ns, nf
+         logical :: is_aggregated
          fld => fldsExport
          do while (associated(fld))
-            call dshr_dfield_add(dfields, sdat, trim(fld%stdname), trim(fld%stdname), &
-                 exportState, logunit, mainproc, rc=rc)
-            if (chkerr(rc,__LINE__,u_FILE_u)) return
+            ! Skip fields that are aggregated (summed) in any stream.
+            ! These are handled by the custom summation logic below.
+            is_aggregated = .false.
+            do ns = 1, shr_strdata_get_stream_count(sdat)
+               do nf = 1, sdat%stream(ns)%nvars
+                  if (trim(sdat%stream(ns)%varlist(nf)%nameinmodel) == trim(fld%stdname) .and. &
+                      trim(sdat%stream(ns)%varlist(nf)%aggregate) == 'sum') then
+                     is_aggregated = .true.
+                     exit
+                  endif
+               end do
+               if (is_aggregated) exit
+            end do
+
+            if (.not. is_aggregated) then
+               call dshr_dfield_add(dfields, sdat, trim(fld%stdname), trim(fld%stdname), &
+                    exportState, logunit, mainproc, rc=rc)
+               if (chkerr(rc,__LINE__,u_FILE_u)) return
+            endif
             fld => fld%next
          end do
        end block
@@ -468,6 +474,121 @@ contains
        write(logunit,*) 'dems : end of main integration loop'
     end if
   end subroutine ModelFinalize
+
+  subroutine dems_advertise_fields(gcomp, exportState, rc)
+#ifndef DISABLE_FoX
+    use FoX_DOM, only : extractDataContent, destroy, Node, NodeList, parseFile, getElementsByTagname
+    use FoX_DOM, only : getLength, item
+#endif
+    use ESMF, only : ESMF_ConfigCreate, ESMF_ConfigLoadFile, ESMF_ConfigGetLen
+    use ESMF, only : ESMF_ConfigGetAttribute, ESMF_Config
+    type(ESMF_GridComp)  :: gcomp
+    type(ESMF_State)     :: exportState
+    integer, intent(out) :: rc
+
+#ifndef DISABLE_FoX
+    type(Node)     , pointer :: Sdoc, p, streamnode, varnode
+    type(NodeList) , pointer :: streamlist, varlist
+#endif
+    type(ESMF_Config)        :: cf
+    character(len=CL)        :: tmpstr, model_name
+    integer                  :: i, n, nstrms, nvars, status
+    logical                  :: already_added
+    character(2)             :: mystrm
+    character(len=ESMF_MAXSTR), allocatable :: strm_tmpstrings(:)
+
+    rc = ESMF_SUCCESS
+    if (.not. mainproc) return
+
+    streamfilename = 'dems.streams'//trim(inst_suffix)
+#ifndef DISABLE_FoX
+    streamfilename = trim(streamfilename)//'.xml'
+
+    Sdoc => parseFile(streamfilename, iostat=status)
+    if (status == 0) then
+       streamlist => getElementsByTagname(Sdoc, "stream_info")
+       nstrms = getLength(streamlist)
+
+       do i = 1, nstrms
+          streamnode => item(streamlist, i-1)
+          p => item(getElementsByTagname(streamnode, "datavars"), 0)
+          if (associated(p)) then
+             varlist => getElementsByTagname(p, "var")
+             nvars = getLength(varlist)
+             do n = 1, nvars
+                varnode => item(varlist, n-1)
+                call extractDataContent(varnode, tmpstr)
+                call process_var_line(tmpstr)
+             end do
+          endif
+       end do
+       call destroy(Sdoc)
+       return
+    endif
+#endif
+
+    ! Fallback to ESMF Config parser if FoX is disabled or XML parsing failed
+    cf = ESMF_ConfigCreate(rc=rc)
+    call ESMF_ConfigLoadFile(config=cf, filename=trim(streamfilename), rc=rc)
+    if (rc /= ESMF_SUCCESS) return
+
+    nstrms = ESMF_ConfigGetLen(config=cf, label='stream_info:', rc=rc)
+    do i = 1, nstrms
+       write(mystrm,"(I2.2)") i
+       nvars = ESMF_ConfigGetLen(config=cf, label="stream_data_variables"//mystrm//':', rc=rc)
+       if (nvars > 0) then
+          allocate(strm_tmpstrings(nvars))
+          call ESMF_ConfigGetAttribute(cf, valueList=strm_tmpstrings, label="stream_data_variables"//mystrm//':', rc=rc)
+          do n = 1, nvars
+             call process_var_line(strm_tmpstrings(n))
+          end do
+          deallocate(strm_tmpstrings)
+       endif
+    end do
+
+  contains
+
+    subroutine process_var_line(line)
+       character(len=*), intent(in) :: line
+       character(len=CL) :: lstr
+       integer :: pos
+
+       lstr = adjustl(line)
+       ! Skip nameinfile
+       pos = scan(lstr, ' ')
+       if (pos <= 0) return
+       lstr = adjustl(lstr(pos+1:))
+       ! Get nameinmodel
+       pos = scan(lstr, ' ')
+       if (pos > 0) then
+          model_name = lstr(1:pos-1)
+       else
+          model_name = trim(lstr)
+       endif
+
+       ! Check if already in fldsExport
+       already_added = .false.
+       block
+         type(fldlist_type), pointer :: fld
+         fld => fldsExport
+         do while (associated(fld))
+            if (trim(fld%stdname) == trim(model_name)) then
+               already_added = .true.
+               exit
+            endif
+            fld => fld%next
+         end do
+       end block
+
+       if (.not. already_added) then
+          call dshr_fldList_add(fldsExport, trim(model_name))
+          call NUOPC_FieldDictionaryAddEntry(standardName=trim(model_name), units='kg m-2 s-1', rc=rc)
+          call NUOPC_Advertise(exportState, standardName=trim(model_name), rc=rc)
+          if (mainproc) write(logunit,*) 'DEMS: Dynamically advertised field: ', trim(model_name)
+       endif
+    end subroutine process_var_line
+
+  end subroutine dems_advertise_fields
 
   subroutine SetVM(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
