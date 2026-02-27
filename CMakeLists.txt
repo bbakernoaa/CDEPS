@@ -82,6 +82,8 @@ endif()
 target_include_directories(dshr PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/streams>
                                        $<INSTALL_INTERFACE:mod>)
 
+enable_testing()
+
 foreach(COMP datm dems dice dglc dlnd docn drof dwav)
   add_subdirectory("${COMP}")
   if(BLD_STANDALONE)

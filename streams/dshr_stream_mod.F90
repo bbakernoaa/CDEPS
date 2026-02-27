@@ -94,9 +94,9 @@ module dshr_stream_mod
   end type shr_stream_file_type
 
   type shr_stream_data_variable
-     character(CS) :: nameinfile
-     character(CS) :: nameinmodel
-     character(CS) :: aggregate = 'none'
+     character(CL) :: nameinfile
+     character(CL) :: nameinmodel
+     character(CL) :: aggregate = 'none'
   end type shr_stream_data_variable
 
   type shr_stream_streamType
@@ -405,11 +405,11 @@ contains
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        enddo
        do n=1,streamdat(i)%nvars
-          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%nameinfile, CS, 0, rc=rc)
+          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%nameinfile, CL, 0, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%nameinmodel, CS, 0, rc=rc)
+          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%nameinmodel, CL, 0, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%aggregate, CS, 0, rc=rc)
+          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%aggregate, CL, 0, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        enddo
        call ESMF_VMBroadCast(vm, streamdat(i)%meshfile,     CL, 0, rc=rc)

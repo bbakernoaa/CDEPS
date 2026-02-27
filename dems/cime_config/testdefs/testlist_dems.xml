@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<testlist version="2.0">
+  <test compset="2000_DATM_SLND_SICE_SOCN_SROF_SGLC_SWAV_DEMS" grid="f10_f10_mg37" name="SMS_Ld5">
+    <machines>
+      <machine name="derecho" compiler="intel" category="aux_cdeps"/>
+    </machines>
+  </test>
+</testlist>

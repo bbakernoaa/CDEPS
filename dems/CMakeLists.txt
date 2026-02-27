@@ -31,3 +31,5 @@ if(BLD_STANDALONE)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${MOD}" DESTINATION include)
   endforeach ()
 endif()
+
+add_subdirectory(test)

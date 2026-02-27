@@ -77,3 +77,4 @@ jobs:
         run: |
           cd build-cdeps
           make VERBOSE=1
+          ctest --output-on-failure

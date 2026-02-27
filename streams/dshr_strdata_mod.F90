@@ -93,8 +93,8 @@ module dshr_strdata_mod
      type(io_desc_t)                     :: stream_pio_iodesc               ! stream pio descriptor
      logical                             :: stream_pio_iodesc_set =.false.  ! true=>pio iodesc has been set
      type(ESMF_RouteHandle)              :: routehandle                     ! stream n -> model mesh mapping
-     character(CS), allocatable          :: fldlist_stream(:)               ! names of stream file fields
-     character(CS), allocatable          :: fldlist_model(:)                ! names of stream model fields
+     character(CL), allocatable          :: fldlist_stream(:)               ! names of stream file fields
+     character(CL), allocatable          :: fldlist_model(:)                ! names of stream model fields
      integer                             :: stream_nlev                     ! number of vertical levels in stream
      real(r8), allocatable               :: stream_vlevs(:)                 ! values of vertical levels in stream
      integer                             :: stream_lb                       ! index of the Lowerbound (LB) in fldlist_stream
@@ -1249,7 +1249,7 @@ contains
     integer :: ns, nf, n
     real(r8), pointer :: model_ptr1(:), strm_ptr1(:)
     real(r8), pointer :: model_ptr2(:,:), strm_ptr2(:,:)
-    character(CS) :: model_name
+    character(CL) :: model_name
     logical, allocatable :: processed(:)
 
     rc = ESMF_SUCCESS
