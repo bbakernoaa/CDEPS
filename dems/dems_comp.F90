@@ -209,10 +209,15 @@ contains
     call NUOPC_FieldDictionaryAddEntry(standardName='Dust_Flux', units='kg m-2 s-1', rc=rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-    ! Advertise fields: NOx, CO, Dust_Flux
+    ! Add entries to the NUOPC field dictionary for aggregated fields
+    call NUOPC_FieldDictionaryAddEntry(standardName='Total_NOx', units='kg m-2 s-1', rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    ! Advertise fields: NOx, CO, Dust_Flux, Total_NOx
     call dshr_fldList_add(fldsExport, 'NOx')
     call dshr_fldList_add(fldsExport, 'CO')
     call dshr_fldList_add(fldsExport, 'Dust_Flux')
+    call dshr_fldList_add(fldsExport, 'Total_NOx')
 
     block
       type(fldlist_type), pointer :: fld
@@ -385,6 +390,65 @@ contains
 
     call dshr_dfield_copy(dfields, sdat, rc)
     if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    ! Sector Aggregation (Summation)
+    block
+      integer :: ns, nf, n, rank, i
+      real(r8), pointer :: export_ptr1(:), strm_ptr1(:)
+      real(r8), pointer :: export_ptr2(:,:), strm_ptr2(:,:)
+      character(CS) :: model_name
+      character(CS), allocatable :: aggregated_flds(:)
+      integer :: num_agg
+
+      ! 1. Identify all fields that will be aggregated and zero them out
+      num_agg = 0
+      do ns = 1, shr_strdata_get_stream_count(sdat)
+         num_agg = num_agg + sdat%stream(ns)%nvars
+      end do
+      allocate(aggregated_flds(num_agg))
+      num_agg = 0
+      do ns = 1, shr_strdata_get_stream_count(sdat)
+         do nf = 1, sdat%stream(ns)%nvars
+            if (trim(sdat%stream(ns)%varlist(nf)%aggregate) == 'sum') then
+               model_name = sdat%stream(ns)%varlist(nf)%nameinmodel
+               ! Check if already zeroed
+               do i = 1, num_agg
+                  if (aggregated_flds(i) == model_name) goto 10
+               end do
+               num_agg = num_agg + 1
+               aggregated_flds(num_agg) = model_name
+               call dshr_state_getfldptr(exportState, trim(model_name), export_ptr1, export_ptr2, allowNullReturn=.true., rc=rc)
+               if (associated(export_ptr1)) export_ptr1(:) = 0.0_r8
+               if (associated(export_ptr2)) export_ptr2(:,:) = 0.0_r8
+10             continue
+            endif
+         end do
+      end do
+
+      ! 2. Sum sectors into export fields
+      do ns = 1, shr_strdata_get_stream_count(sdat)
+         do nf = 1, sdat%stream(ns)%nvars
+            if (trim(sdat%stream(ns)%varlist(nf)%aggregate) == 'sum') then
+               model_name = sdat%stream(ns)%varlist(nf)%nameinmodel
+               call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
+                    trim(sdat%stream(ns)%varlist(nf)%nameinfile), &
+                    fldptr1=strm_ptr1, fldptr2=strm_ptr2, rank=rank, rc=rc)
+               if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+               if (rank == 1) then
+                  call dshr_state_getfldptr(exportState, trim(model_name), fldptr1=export_ptr1, rc=rc)
+                  export_ptr1(:) = export_ptr1(:) + strm_ptr1(:)
+               else if (rank == 2) then
+                  call dshr_state_getfldptr(exportState, trim(model_name), fldptr2=export_ptr2, rc=rc)
+                  export_ptr2(:,:) = export_ptr2(:,:) + strm_ptr2(:,:)
+               endif
+               if (mainproc) write(logunit,*) 'DEMS: Summing sector ', &
+                    trim(sdat%stream(ns)%varlist(nf)%nameinfile), ' into ', trim(model_name)
+            endif
+         end do
+      end do
+      deallocate(aggregated_flds)
+    end block
 
     if (restart_write) then
        call shr_get_rpointer_name(gcomp, 'dems', target_ymd, target_tod, rpfile, 'write', rc)
