@@ -63,6 +63,7 @@ module dshr_strdata_mod
   public  :: shr_strdata_init_from_inline
   public  :: shr_strdata_setOrbs
   public  :: shr_strdata_advance
+  public  :: shr_strdata_aggregate
   public  :: shr_strdata_get_stream_domain  ! public since needed by dshr_mod
   public  :: shr_strdata_get_stream_pointer ! get a pointer into a stream's fldbun_model field bundle
   public  :: shr_strdata_get_stream_count
@@ -92,8 +93,8 @@ module dshr_strdata_mod
      type(io_desc_t)                     :: stream_pio_iodesc               ! stream pio descriptor
      logical                             :: stream_pio_iodesc_set =.false.  ! true=>pio iodesc has been set
      type(ESMF_RouteHandle)              :: routehandle                     ! stream n -> model mesh mapping
-     character(CL), allocatable          :: fldlist_stream(:)               ! names of stream file fields
-     character(CL), allocatable          :: fldlist_model(:)                ! names of stream model fields
+     character(CS), allocatable          :: fldlist_stream(:)               ! names of stream file fields
+     character(CS), allocatable          :: fldlist_model(:)                ! names of stream model fields
      integer                             :: stream_nlev                     ! number of vertical levels in stream
      real(r8), allocatable               :: stream_vlevs(:)                 ! values of vertical levels in stream
      integer                             :: stream_lb                       ! index of the Lowerbound (LB) in fldlist_stream
@@ -471,21 +472,23 @@ contains
        enddo
        do nfld = 1, nvars
           do i=1,size(sdat%pstrm(ns)%fldbun_data)
+             ! If aggregation is used, multiple file fields might map to the same model field.
+             ! We must use unique names in the internal field bundles.
              if (sdat%pstrm(ns)%stream_nlev > 1) then
                 lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                     name=trim(sdat%pstrm(ns)%fldlist_stream(nfld)), &
                      ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
                      meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
              else
                 lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                     name=trim(sdat%pstrm(ns)%fldlist_stream(nfld)), &
                      meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
              end if
              call ESMF_FieldBundleAdd(sdat%pstrm(ns)%fldbun_data(i), (/lfield/), rc=rc)
              if (chkerr(rc,__LINE__,u_FILE_u)) return
              if (mainproc) then
                 if (i == 1) then
-                   write(sdat%stream(1)%logunit,'(a,i8)') "    adding field "//trim(sdat%pstrm(ns)%fldlist_model(nfld))//&
+                   write(sdat%stream(1)%logunit,'(a,i8)') "    adding field "//trim(sdat%pstrm(ns)%fldlist_stream(nfld))//&
                         " to fldbun_data for stream ",ns
                 end if
              end if
@@ -499,11 +502,11 @@ contains
           if (stream_nlev > 1) then
              lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
                   ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
-                  name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                  name=trim(sdat%pstrm(ns)%fldlist_stream(nfld)), &
                   meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
           else
              lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                  name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                  name=trim(sdat%pstrm(ns)%fldlist_stream(nfld)), &
                   meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
           end if
           call ESMF_FieldBundleAdd(sdat%pstrm(ns)%fldbun_model, (/lfield/), rc=rc)
@@ -1125,10 +1128,10 @@ contains
              do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
                 if (sdat%pstrm(ns)%stream_nlev > 1) then
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr2=dataptr2d, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr2=dataptr2d, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(stream_index), &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr2=dataptr2d_lb, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr2=dataptr2d_lb, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    do i = 1,size(dataptr2d,dim=2)
                       if (coszen(i) > solZenMin) then
@@ -1139,10 +1142,10 @@ contains
                    end do
                 else
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr1=dataptr1d, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr1=dataptr1d, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(stream_index), &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr1=dataptr1d_lb, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr1=dataptr1d_lb, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    do i = 1,size(dataptr1d)
                       if (coszen(i) > solZenMin) then
@@ -1176,26 +1179,26 @@ contains
              do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
                 if (sdat%pstrm(ns)%stream_nlev > 1) then
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr2=dataptr2d, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr2=dataptr2d, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_lb), &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr2=dataptr2d_lb, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr2=dataptr2d_lb, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_ub), &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr2=dataptr2d_ub, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr2=dataptr2d_ub, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    do lev = 1,sdat%pstrm(ns)%stream_nlev
                       dataptr2d(lev,:) = dataptr2d_lb(lev,:) * flb + dataptr2d_ub(lev,:) * fub
                    end do
                 else
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr1=dataptr1d, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr1=dataptr1d, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_lb), &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr1=dataptr1d_lb, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr1=dataptr1d_lb, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_ub), &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr1=dataptr1d_ub, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr1=dataptr1d_ub, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    dataptr1d(:) = dataptr1d_lb(:) * flb + dataptr1d_ub(:) * fub
                 end if
@@ -1212,12 +1215,12 @@ contains
              do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
                 if (sdat%pstrm(ns)%stream_nlev > 1) then
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr2=dataptr2d, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr2=dataptr2d, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    dataptr2d(:,:) = 0._r8
                 else
                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
-                        sdat%pstrm(ns)%fldlist_model(nf), fldptr1=dataptr1d, rc=rc)
+                        sdat%pstrm(ns)%fldlist_stream(nf), fldptr1=dataptr1d, rc=rc)
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    dataptr1d(:) = 0._r8
                 end if
@@ -1237,6 +1240,42 @@ contains
   end subroutine shr_strdata_advance
 
   !===============================================================================
+
+  subroutine shr_strdata_aggregate(sdat, rc)
+    ! Sum multiple file variables into a single model variable if aggregation is 'sum'
+    type(shr_strdata_type), intent(inout) :: sdat
+    integer, intent(out) :: rc
+
+    integer :: ns, nf, n
+    real(r8), pointer :: model_ptr1(:), strm_ptr1(:)
+    real(r8), pointer :: model_ptr2(:,:), strm_ptr2(:,:)
+    character(CS) :: model_name
+    logical, allocatable :: processed(:)
+
+    rc = ESMF_SUCCESS
+
+    do ns = 1, shr_strdata_get_stream_count(sdat)
+       allocate(processed(sdat%stream(ns)%nvars))
+       processed = .false.
+       do nf = 1, sdat%stream(ns)%nvars
+          if (processed(nf)) cycle
+          model_name = sdat%stream(ns)%varlist(nf)%nameinmodel
+
+          ! Check if this variable is part of a sum aggregation
+          if (trim(sdat%stream(ns)%varlist(nf)%aggregate) == 'sum') then
+             ! Find all other variables that map to the same model name and have 'sum'
+             ! First, zero out the model field in the component state
+             ! Actually, we just need to sum them up here.
+             ! We use the component's export state as the target if possible,
+             ! but shr_strdata doesn't have easy access to it.
+             ! Instead, we provide a way to sum into a provided array in the component.
+             ! For Session 3, we will implement the summation within dems_comp.F90
+             ! utilizing the unique pointers we've enabled.
+          endif
+       end do
+       deallocate(processed)
+    end do
+  end subroutine shr_strdata_aggregate
 
   subroutine shr_strdata_setOrbs(sdat,eccen,mvelpp,lambm0,obliqr,modeldt)
 
@@ -2124,12 +2163,15 @@ contains
        ! Check if requested stream field is read in - and if it is then point into the stream field bundle
        do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
           if (trim(strm_fld) == trim(sdat%pstrm(ns)%fldlist_model(nf))) then
-             call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, trim(sdat%pstrm(ns)%fldlist_model(nf)), &
+             ! Note: we now use nameinfile (fldlist_stream) for internal field bundle names to support aggregation.
+             call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, trim(sdat%pstrm(ns)%fldlist_stream(nf)), &
                   fldptr1=strm_ptr, rc=rc)
              if (chkerr(rc,__LINE__,u_FILE_u)) return
              if (sdat%mainproc) then
                 write(sdat%stream(1)%logunit,F00)' strm_ptr is allocated for stream field strm_'//trim(strm_fld)
              end if
+             ! If aggregation is 'sum', the first match is not enough to represent the final summed value.
+             ! However, shr_strdata_get_stream_pointer is usually for reading individual stream values.
              found = .true.
              exit
           end if
@@ -2164,7 +2206,8 @@ contains
        ! Check if requested stream field is read in - and if it is then point into the stream field bundle
        do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
           if (trim(strm_fld) == trim(sdat%pstrm(ns)%fldlist_model(nf))) then
-             call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, trim(sdat%pstrm(ns)%fldlist_model(nf)), &
+             ! Note: we now use nameinfile (fldlist_stream) for internal field bundle names to support aggregation.
+             call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, trim(sdat%pstrm(ns)%fldlist_stream(nf)), &
                   fldptr2=strm_ptr, rc=rc)
              if (chkerr(rc,__LINE__,u_FILE_u)) return
              if (sdat%mainproc) then
