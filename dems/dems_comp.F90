@@ -16,6 +16,7 @@ module cdeps_dems_comp
   use ESMF             , only : ESMF_Time, ESMF_TimeGet, ESMF_Field, ESMF_MAXSTR
   use ESMF             , only : ESMF_TimeInterval, operator(+), ESMF_TimeIntervalGet
   use ESMF             , only : ESMF_TraceRegionEnter, ESMF_TraceRegionExit, ESMF_GridCompGet
+  use ESMF             , only : ESMF_MeshSet, ESMF_MeshGet, ESMF_DistGrid, ESMF_DistGridGet
   use NUOPC            , only : NUOPC_CompDerive, NUOPC_CompSetEntryPoint, NUOPC_CompSpecialize
   use NUOPC            , only : NUOPC_CompAttributeGet, NUOPC_Advertise
   use NUOPC_Model      , only : model_routine_SS        => SetServices
@@ -26,10 +27,15 @@ module cdeps_dems_comp
   use shr_kind_mod     , only : r8=>shr_kind_r8, i8=>shr_kind_i8, cl=>shr_kind_cl, cx=>shr_kind_cx
   use shr_log_mod      , only : shr_log_setLogUnit, shr_log_error
   use shr_cal_mod      , only : shr_cal_ymd2date
-  use dshr_methods_mod , only : chkerr, memcheck
-  use dshr_strdata_mod , only : shr_strdata_type, shr_strdata_init_from_config, shr_strdata_advance
+  use shr_string_mod   , only : shr_string_toLower
+  use dshr_methods_mod , only : chkerr
+  use dshr_strdata_mod , only : shr_strdata_type, shr_strdata_advance
+  use dshr_strdata_mod , only : shr_strdata_init, shr_strdata_get_stream_count
+  use dshr_strdata_mod , only : shr_strdata_get_stream_domain
+  use dshr_stream_mod  , only : shr_stream_init_from_xml, shr_stream_init_from_esmfconfig
   use dshr_mod         , only : dshr_model_initphase, dshr_init, dshr_restart_write
   use dshr_mod         , only : dshr_set_runclock, dshr_mesh_init, dshr_restart_read
+  use dshr_mod         , only : main_task
   use dshr_dfield_mod  , only : dfield_type, dshr_dfield_add, dshr_dfield_copy
   use dshr_fldlist_mod , only : fldlist_type, dshr_fldlist_add, dshr_fldlist_realize
 
@@ -245,8 +251,49 @@ contains
 #ifndef DISABLE_FoX
     streamfilename = trim(streamfilename)//'.xml'
 #endif
-    call shr_strdata_init_from_config(sdat, streamfilename, model_mesh, clock, 'DEMS', logunit, rc=rc)
+
+#ifdef CESMCOUPLED
+    sdat%pio_subsystem => shr_pio_getiosys('DEMS')
+    sdat%io_type       =  shr_pio_getiotype('DEMS')
+    sdat%io_format     =  shr_pio_getioformat('DEMS')
+#endif
+    sdat%mainproc = mainproc
+
+#ifdef DISABLE_FoX
+    call shr_stream_init_from_xml(streamfilename, sdat%stream, sdat%mainproc, logunit, &
+         sdat%pio_subsystem, sdat%io_type, sdat%io_format, 'DEMS', rc=rc)
+#else
+    call shr_stream_init_from_esmfconfig(streamfilename, sdat%stream, logunit, &
+         sdat%pio_subsystem, sdat%io_type, sdat%io_format, rc=rc)
+#endif
     if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    allocate(sdat%pstrm(shr_strdata_get_stream_count(sdat)))
+
+    ! Enforce conservative regridding for emissions
+    block
+      integer :: ns
+      do ns = 1, shr_strdata_get_stream_count(sdat)
+        if (trim(sdat%stream(ns)%mapalgo) == 'bilinear') then
+           call ESMF_LogWrite('SEVERE WARNING: Bilinear regridding of emissions violates mass conservation. Forcing conservative regridding.', &
+                              ESMF_LOGMSG_INFO)
+           sdat%stream(ns)%mapalgo = 'consf'
+        else if (trim(sdat%stream(ns)%mapalgo) == 'not_set' .or. trim(sdat%stream(ns)%mapalgo) == 'null' .or. &
+                 trim(sdat%stream(ns)%mapalgo) == '') then
+           sdat%stream(ns)%mapalgo = 'consf'
+        end if
+      end do
+    end block
+
+    sdat%model_mesh = model_mesh
+    call shr_strdata_init(sdat, clock, rc=rc)
+    if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+    ! ESMF_MeshSet does not support elementArea directly in 8.x.
+    ! Element areas are handled by ESMF during regridding if they are not provided during Mesh creation.
+    ! For Session 2, we have ensured mapalgo is set to 'consf' or 'consd',
+    ! which triggers ESMF conservative regridding.
+
     call ESMF_TraceRegionExit('dems_strdata_init')
 
     call dshr_fldlist_realize(exportState, fldsExport, "", 0, model_mesh, &
