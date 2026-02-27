@@ -91,31 +91,25 @@ contains
 
     ! loop over all input streams and ! determine if the strm_fld is in the attribute vector of stream ns
     do ns = 1, shr_strdata_get_stream_count(sdat)
-       ! Check the variable list in the stream to find which file variable maps to strm_fld
-       found = .false.
-       do nf = 1, sdat%stream(ns)%nvars
-          if (trim(strm_fld) == trim(sdat%stream(ns)%varlist(nf)%nameinmodel)) then
-             ! We found the mapping. Now find the index of nameinfile in the field bundle.
-             fldbun_model = shr_strdata_get_stream_fieldbundle(sdat, ns, 'model')
-             call ESMF_FieldBundleGet(fldbun_model, fieldCount=fieldCount, rc=rc)
-             if (chkerr(rc,__LINE__,u_FILE_u)) return
-             allocate(lfieldnamelist(fieldCount))
-             call ESMF_FieldBundleGet(fldbun_model, fieldNameList=lfieldnamelist, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
-             if (chkerr(rc,__LINE__,u_FILE_u)) return
+       fldbun_model = shr_strdata_get_stream_fieldbundle(sdat, ns, 'model')
+       call ESMF_FieldBundleGet(fldbun_model, fieldCount=fieldCount, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+       allocate(lfieldnamelist(fieldCount))
+       call ESMF_FieldBundleGet(fldbun_model, fieldNameList=lfieldnamelist, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-             do n = 1, fieldcount
-                if (trim(sdat%stream(ns)%varlist(nf)%nameinfile) == trim(lfieldnamelist(n))) then
-                   found = .true.
-                   dfield_new%fldbun_index = n
-                   dfield_new%stream_index = ns
-                   exit
-                endif
-             end do
-             deallocate(lfieldnamelist)
-          endif
-          if (found) exit
+       ! if strm_fld is in the field bundle of stream ns then set the field index of the field with
+       ! the name strm_fld and set the index of the stream
+       found = .false.
+       do nf = 1,fieldcount
+          if (trim(strm_fld) == trim(lfieldnamelist(nf))) then
+             found = .true.
+             dfield_new%fldbun_index = nf
+             dfield_new%stream_index = ns
+             if (found) exit
+          end if
        end do
-       if (found) exit
+       deallocate(lfieldnamelist)
     end do
 
     ! Set export state array pointer
@@ -175,31 +169,25 @@ contains
 
     ! loop over all input streams and ! determine if the strm_fld is in the attribute vector of stream ns
     do ns = 1, shr_strdata_get_stream_count(sdat)
-       ! Check the variable list in the stream to find which file variable maps to strm_fld
-       found = .false.
-       do nf = 1, sdat%stream(ns)%nvars
-          if (trim(strm_fld) == trim(sdat%stream(ns)%varlist(nf)%nameinmodel)) then
-             ! We found the mapping. Now find the index of nameinfile in the field bundle.
-             fldbun_model = shr_strdata_get_stream_fieldbundle(sdat, ns, 'model')
-             call ESMF_FieldBundleGet(fldbun_model, fieldCount=fieldCount, rc=rc)
-             if (chkerr(rc,__LINE__,u_FILE_u)) return
-             allocate(lfieldnamelist(fieldCount))
-             call ESMF_FieldBundleGet(fldbun_model, fieldNameList=lfieldnamelist, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
-             if (chkerr(rc,__LINE__,u_FILE_u)) return
+       fldbun_model = shr_strdata_get_stream_fieldbundle(sdat, ns, 'model')
+       call ESMF_FieldBundleGet(fldbun_model, fieldCount=fieldCount, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
+       allocate(lfieldnamelist(fieldCount))
+       call ESMF_FieldBundleGet(fldbun_model, fieldNameList=lfieldnamelist, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
+       if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-             do n = 1, fieldcount
-                if (trim(sdat%stream(ns)%varlist(nf)%nameinfile) == trim(lfieldnamelist(n))) then
-                   found = .true.
-                   dfield_new%fldbun_index = n
-                   dfield_new%stream_index = ns
-                   exit
-                endif
-             end do
-             deallocate(lfieldnamelist)
-          endif
-          if (found) exit
+       ! if strm_fld is in the field bundle of stream ns then set the field index of the field with
+       ! the name strm_fld and set the index of the stream
+       found = .false.
+       do nf = 1,fieldcount
+          if (trim(strm_fld) == trim(lfieldnamelist(nf))) then
+             found = .true.
+             dfield_new%fldbun_index = nf
+             dfield_new%stream_index = ns
+             if (found) exit
+          end if
        end do
-       if (found) exit
+       deallocate(lfieldnamelist)
     end do
 
     ! Set export state array pointer
@@ -293,35 +281,33 @@ contains
 
        ! loop through input streams
        do ns = 1, shr_strdata_get_stream_count(sdat)
-          ! Check the variable list in the stream to find which file variable maps to strm_flds(nf)
-          found = .false.
-          do n = 1, sdat%stream(ns)%nvars
-             if (trim(strm_flds(nf)) == trim(sdat%stream(ns)%varlist(n)%nameinmodel)) then
-                ! We found the mapping. Now find the index of nameinfile in the field bundle.
-                dfield_new%stream_indices(nf) = ns
-                fldbun_model = shr_strdata_get_stream_fieldbundle(sdat, ns, 'model')
-                call ESMF_FieldBundleGet(fldbun_model, fieldCount=fieldCount, rc=rc)
-                if (chkerr(rc,__LINE__,u_FILE_u)) return
-                allocate(lfieldnamelist(fieldCount))
-                call ESMF_FieldBundleGet(fldbun_model, fieldNameList=lfieldnamelist, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
-                if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-                do i = 1, fieldcount
-                   if (trim(sdat%stream(ns)%varlist(n)%nameinfile) == trim(lfieldnamelist(i))) then
-                      found = .true.
-                      dfield_new%fldbun_indices(nf) = i
-                      if (mainproc) then
-                         write(logunit,*)'(dshr_addfield_add) using stream field strm_'//&
-                              trim(sdat%stream(ns)%varlist(n)%nameinfile)//' for 2d '//trim(state_fld)
-                      end if
-                      exit
-                   endif
-                end do
-                deallocate(lfieldnamelist)
-             endif
-             if (found) exit
-          end do
-          if (found) exit
+          ! determine which stream the field with name dfield%stream_fldnames(nf) is in
+          fldbun_model = shr_strdata_get_stream_fieldbundle(sdat, ns, 'model')
+
+          call ESMF_FieldBundleGet(fldbun_model, fieldName=trim(strm_flds(nf)), isPresent=isPresent, rc=rc)
+          if (ispresent) then
+             ! if field is present in stream - determine the index in the field bundle of this field
+             dfield_new%stream_indices(nf) = ns
+             call ESMF_FieldBundleGet(fldbun_model, fieldCount=fieldCount, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+             allocate(lfieldnamelist(fieldCount))
+             call ESMF_FieldBundleGet(fldbun_model, fieldNameList=lfieldnamelist, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+             do n = 1,fieldcount
+                if (trim(strm_flds(nf)) == trim(lfieldnamelist(n))) then
+                   dfield_new%fldbun_indices(nf) = n
+                   if (mainproc) then
+                      write(logunit,*)'(dshr_addfield_add) using stream field strm_'//&
+                           trim(strm_flds(nf))//' for 2d '//trim(state_fld)
+                   end if
+                end if
+             end do
+
+             deallocate(lfieldnamelist)
+             exit ! go to the next fld
+          end if
        end do
     end do
 
@@ -402,35 +388,33 @@ contains
 
        ! loop through input streams
        do ns = 1, shr_strdata_get_stream_count(sdat)
-          ! Check the variable list in the stream to find which file variable maps to strm_flds(nf)
-          found = .false.
-          do n = 1, sdat%stream(ns)%nvars
-             if (trim(strm_flds(nf)) == trim(sdat%stream(ns)%varlist(n)%nameinmodel)) then
-                ! We found the mapping. Now find the index of nameinfile in the field bundle.
-                dfield_new%stream_indices(nf) = ns
-                fldbun_model = shr_strdata_get_stream_fieldbundle(sdat, ns, 'model')
-                call ESMF_FieldBundleGet(fldbun_model, fieldCount=fieldCount, rc=rc)
-                if (chkerr(rc,__LINE__,u_FILE_u)) return
-                allocate(lfieldnamelist(fieldCount))
-                call ESMF_FieldBundleGet(fldbun_model, fieldNameList=lfieldnamelist, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
-                if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-                do i = 1, fieldcount
-                   if (trim(sdat%stream(ns)%varlist(n)%nameinfile) == trim(lfieldnamelist(i))) then
-                      found = .true.
-                      dfield_new%fldbun_indices(nf) = i
-                      if (mainproc) then
-                         write(logunit,*)'(dshr_addfield_add) using stream field strm_'//&
-                              trim(sdat%stream(ns)%varlist(n)%nameinfile)//' for 2d '//trim(state_fld)
-                      end if
-                      exit
-                   endif
-                end do
-                deallocate(lfieldnamelist)
-             endif
-             if (found) exit
-          end do
-          if (found) exit
+          ! determine which stream the field with name dfield%stream_fldnames(nf) is in
+          fldbun_model = shr_strdata_get_stream_fieldbundle(sdat, ns, 'model')
+
+          call ESMF_FieldBundleGet(fldbun_model, fieldName=trim(strm_flds(nf)), isPresent=isPresent, rc=rc)
+          if (ispresent) then
+             ! if field is present in stream - determine the index in the field bundle of this field
+             dfield_new%stream_indices(nf) = ns
+             call ESMF_FieldBundleGet(fldbun_model, fieldCount=fieldCount, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+             allocate(lfieldnamelist(fieldCount))
+             call ESMF_FieldBundleGet(fldbun_model, fieldNameList=lfieldnamelist, itemorderflag=ESMF_ITEMORDER_ADDORDER, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+
+             do n = 1,fieldcount
+                if (trim(strm_flds(nf)) == trim(lfieldnamelist(n))) then
+                   dfield_new%fldbun_indices(nf) = n
+                   if (mainproc) then
+                      write(logunit,*)'(dshr_addfield_add) using stream field strm_'//&
+                           trim(strm_flds(nf))//' for 2d '//trim(state_fld)
+                   end if
+                end if
+             end do
+
+             deallocate(lfieldnamelist)
+             exit ! go to the next fld
+          end if
        end do
     end do
 

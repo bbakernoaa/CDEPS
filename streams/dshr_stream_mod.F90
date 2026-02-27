@@ -96,7 +96,6 @@ module dshr_stream_mod
   type shr_stream_data_variable
      character(CS) :: nameinfile
      character(CS) :: nameinmodel
-     character(CS) :: aggregate = 'none'
   end type shr_stream_data_variable
 
   type shr_stream_streamType
@@ -348,18 +347,8 @@ contains
           do n = 1, streamdat(i)%nvars
              p => item(varlist, n-1)
              call extractDataContent(p, tmpstr)
-             tmpstr = adjustl(tmpstr)
-             index = scan(tmpstr, ' ')
-             streamdat(i)%varlist(n)%nameinfile = tmpstr(1:index-1)
-             tmpstr = adjustl(tmpstr(index+1:))
-             index = scan(tmpstr, ' ')
-             if (index > 0) then
-                streamdat(i)%varlist(n)%nameinmodel = tmpstr(1:index-1)
-                streamdat(i)%varlist(n)%aggregate = adjustl(tmpstr(index+1:))
-             else
-                streamdat(i)%varlist(n)%nameinmodel = trim(tmpstr)
-                streamdat(i)%varlist(n)%aggregate = 'none'
-             endif
+             streamdat(i)%varlist(n)%nameinfile = tmpstr(1:index(tmpstr, " "))
+             streamdat(i)%varlist(n)%nameinmodel = tmpstr(index(trim(tmpstr), " ", .true.)+1:)
           enddo
 
        enddo
@@ -408,8 +397,6 @@ contains
           call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%nameinfile, CS, 0, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
           call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%nameinmodel, CS, 0, rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%aggregate, CS, 0, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        enddo
        call ESMF_VMBroadCast(vm, streamdat(i)%meshfile,     CL, 0, rc=rc)
@@ -746,18 +733,8 @@ contains
         allocate(strm_tmpstrings(streamdat(i)%nvars))
         call ESMF_ConfigGetAttribute(CF,valueList=strm_tmpstrings,label="stream_data_variables"//mystrm//':', rc=rc)
         do n=1, streamdat(i)%nvars
-          tmpstr = adjustl(strm_tmpstrings(n))
-          index = scan(tmpstr, ' ')
-          streamdat(i)%varlist(n)%nameinfile = tmpstr(1:index-1)
-          tmpstr = adjustl(tmpstr(index+1:))
-          index = scan(tmpstr, ' ')
-          if (index > 0) then
-             streamdat(i)%varlist(n)%nameinmodel = tmpstr(1:index-1)
-             streamdat(i)%varlist(n)%aggregate = adjustl(tmpstr(index+1:))
-          else
-             streamdat(i)%varlist(n)%nameinmodel = trim(tmpstr)
-             streamdat(i)%varlist(n)%aggregate = 'none'
-          endif
+          streamdat(i)%varlist(n)%nameinfile = strm_tmpstrings(n)(1:index(trim(strm_tmpstrings(n)), " "))
+          streamdat(i)%varlist(n)%nameinmodel = strm_tmpstrings(n)(index(trim(strm_tmpstrings(n)), " ", .true.)+1:)
         enddo
         deallocate(strm_tmpstrings)
       else
