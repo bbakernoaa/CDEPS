@@ -89,7 +89,15 @@ contains
     call ESMF_GridGet(grid, dimCount=dimCount, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_GridGet(grid, minIndex=minIndex, maxIndex=maxIndex, rc=rc)
+    if (dimCount == 3) then
+       call ESMF_GridGetCoordBounds(grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_CENTER, &
+            localMinIndex=minIndex, localMaxIndex=maxIndex, rc=rc)
+    else
+       call ESMF_GridGetCoordBounds(grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_CENTER, &
+            localMinIndex=minIndex(1:2), localMaxIndex=maxIndex(1:2), rc=rc)
+       minIndex(3) = 1
+       maxIndex(3) = 1
+    endif
 
     if (dimCount == 3) then
        call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=lon_ptr, rc=rc)
@@ -142,12 +150,15 @@ contains
     integer, intent(out) :: rc
 
     real(r8), pointer :: lat_ptr(:), lon_ptr(:), alt_ptr(:), flux_ptr(:)
-    integer, pointer :: i_ptr(:), j_ptr(:), k_ptr(:)
+    integer, pointer :: i_ptr4(:), j_ptr4(:), k_ptr4(:)
+    type(ESMF_Array) :: array
+    integer :: localCount
     integer :: p
 
     rc = ESMF_SUCCESS
 
-    lstream = ESMF_LocStreamCreate(localCount=ps_list%nsources, rc=rc)
+    localCount = ps_list%nsources
+    lstream = ESMF_LocStreamCreate(localCount=localCount, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
     call ESMF_LocStreamAddKey(lstream, keyName='latitude', rc=rc)
@@ -158,22 +169,35 @@ contains
     call ESMF_LocStreamAddKey(lstream, keyName='grid_j', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
     call ESMF_LocStreamAddKey(lstream, keyName='grid_k', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
 
-    call ESMF_LocStreamGetKey(lstream, keyName='latitude', farrayPtr=lat_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='longitude', farrayPtr=lon_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='altitude', farrayPtr=alt_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_i', farrayPtr=i_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_j', farrayPtr=j_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_k', farrayPtr=k_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='latitude', array=array, rc=rc)
+    call ESMF_ArrayGet(array, farrayPtr=lat_ptr, rc=rc)
+
+    call ESMF_LocStreamGetKey(lstream, keyName='longitude', array=array, rc=rc)
+    call ESMF_ArrayGet(array, farrayPtr=lon_ptr, rc=rc)
+
+    call ESMF_LocStreamGetKey(lstream, keyName='altitude', array=array, rc=rc)
+    call ESMF_ArrayGet(array, farrayPtr=alt_ptr, rc=rc)
+
+    call ESMF_LocStreamGetKey(lstream, keyName='flux', array=array, rc=rc)
+    call ESMF_ArrayGet(array, farrayPtr=flux_ptr, rc=rc)
+
+    call ESMF_LocStreamGetKey(lstream, keyName='grid_i', array=array, rc=rc)
+    call ESMF_ArrayGet(array, farrayPtr=i_ptr4, rc=rc)
+
+    call ESMF_LocStreamGetKey(lstream, keyName='grid_j', array=array, rc=rc)
+    call ESMF_ArrayGet(array, farrayPtr=j_ptr4, rc=rc)
+
+    call ESMF_LocStreamGetKey(lstream, keyName='grid_k', array=array, rc=rc)
+    call ESMF_ArrayGet(array, farrayPtr=k_ptr4, rc=rc)
 
     do p = 1, ps_list%nsources
        lat_ptr(p) = ps_list%sources(p)%lat
        lon_ptr(p) = ps_list%sources(p)%lon
        alt_ptr(p) = ps_list%sources(p)%alt
        flux_ptr(p) = ps_list%sources(p)%flux
-       i_ptr(p) = ps_list%sources(p)%i
-       j_ptr(p) = ps_list%sources(p)%j
-       k_ptr(p) = ps_list%sources(p)%k
+       i_ptr4(p) = ps_list%sources(p)%i
+       j_ptr4(p) = ps_list%sources(p)%j
+       k_ptr4(p) = ps_list%sources(p)%k
     end do
   end subroutine dems_point_mapper_to_locstream
 
@@ -183,13 +207,15 @@ contains
     integer, intent(out) :: rc
 
     real(r8), pointer :: flux_ptr(:), field_ptr(:)
+    type(ESMF_Array) :: array
 
     rc = ESMF_SUCCESS
 
     field = ESMF_FieldCreate(lstream, typekind=ESMF_TYPEKIND_R8, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='flux', array=array, rc=rc)
+    call ESMF_ArrayGet(array, farrayPtr=flux_ptr, rc=rc)
     call ESMF_FieldGet(field, farrayPtr=field_ptr, rc=rc)
 
     field_ptr(:) = flux_ptr(:)
