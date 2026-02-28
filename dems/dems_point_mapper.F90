@@ -32,7 +32,6 @@ contains
     integer, intent(out) :: rc
 
     integer :: unit, ierr, n
-    real(r8) :: lat, lon, alt, flux
 
     rc = ESMF_SUCCESS
 
