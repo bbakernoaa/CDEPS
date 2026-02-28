@@ -90,11 +90,11 @@ contains
     if (rc /= ESMF_SUCCESS) return
 
     if (dimCount == 3) then
-       call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, &
-            localDe=0, exclusiveLBound=minIndex, exclusiveUBound=maxIndex, rc=rc)
+       call ESMF_GridGet(grid, localDe=0, &
+            exclusiveLBound=minIndex, exclusiveUBound=maxIndex, rc=rc)
     else
-       call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, &
-            localDe=0, exclusiveLBound=minIndex(1:2), exclusiveUBound=maxIndex(1:2), rc=rc)
+       call ESMF_GridGet(grid, localDe=0, &
+            exclusiveLBound=minIndex(1:2), exclusiveUBound=maxIndex(1:2), rc=rc)
        minIndex(3) = 1
        maxIndex(3) = 1
     endif
@@ -151,7 +151,6 @@ contains
 
     real(r8), pointer :: lat_ptr(:), lon_ptr(:), alt_ptr(:), flux_ptr(:)
     integer, pointer :: i_ptr4(:), j_ptr4(:), k_ptr4(:)
-    type(ESMF_Array) :: array
     integer :: localCount
     integer :: p
 
@@ -169,13 +168,13 @@ contains
     call ESMF_LocStreamAddKey(lstream, keyName='grid_j', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
     call ESMF_LocStreamAddKey(lstream, keyName='grid_k', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
 
-    call ESMF_LocStreamGetKey(lstream, keyName='latitude', keyData=lat_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='longitude', keyData=lon_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='altitude', keyData=alt_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='flux', keyData=flux_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_i', keyData=i_ptr4, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_j', keyData=j_ptr4, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_k', keyData=k_ptr4, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, 'latitude', lat_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, 'longitude', lon_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, 'altitude', alt_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, 'flux', flux_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, 'grid_i', i_ptr4, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, 'grid_j', j_ptr4, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, 'grid_k', k_ptr4, rc=rc)
 
     do p = 1, ps_list%nsources
        lat_ptr(p) = ps_list%sources(p)%lat
@@ -200,7 +199,7 @@ contains
     field = ESMF_FieldCreate(lstream, typekind=ESMF_TYPEKIND_R8, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='flux', keyData=flux_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, 'flux', flux_ptr, rc=rc)
     call ESMF_FieldGet(field, farrayPtr=field_ptr, rc=rc)
 
     field_ptr(:) = flux_ptr(:)
