@@ -21,7 +21,7 @@ module cdeps_dems_comp
   use ESMF             , only : ESMF_TYPEKIND_R8, ESMF_MESHLOC_ELEMENT, ESMF_FieldCreate
   use ESMF             , only : ESMF_Grid, ESMF_GridIsCreated, ESMF_LocStream, ESMF_DistGrid
   use ESMF             , only : ESMF_DistGridCreate, ESMF_GridCreate, ESMF_GridAddCoord
-  use ESMF             , only : ESMF_GridGetCoord, ESMF_MeshGet, ESMF_FieldSetName
+  use ESMF             , only : ESMF_GridGetCoord, ESMF_MeshGet
   use NUOPC            , only : NUOPC_CompDerive, NUOPC_CompSetEntryPoint, NUOPC_CompSpecialize
   use NUOPC            , only : NUOPC_CompAttributeGet, NUOPC_Advertise
   use NUOPC_Model      , only : model_routine_SS        => SetServices
@@ -408,8 +408,9 @@ contains
                    else
                       ! 3. Handle Uncollapsed mode: Create LocStream and add to state
                       call dems_point_mapper_to_locstream(point_sources, point_lstream, rc)
+                      point_field = ESMF_FieldCreate(point_lstream, typekind=ESMF_TYPEKIND_R8, &
+                           name='Point_Flux_Uncollapsed', rc=rc)
                       call dems_point_mapper_create_field(point_lstream, point_field, rc)
-                      call ESMF_FieldSetName(point_field, 'Point_Flux_Uncollapsed', rc=rc)
                       call ESMF_StateAdd(exportState, (/point_field/), rc=rc)
                    endif
                 endif

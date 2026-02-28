@@ -196,15 +196,12 @@ contains
 
   subroutine dems_point_mapper_create_field(lstream, field, rc)
     type(ESMF_LocStream), intent(in) :: lstream
-    type(ESMF_Field), intent(out) :: field
+    type(ESMF_Field), intent(inout) :: field
     integer, intent(out) :: rc
 
     real(r8), pointer :: flux_p(:), field_p(:)
 
     rc = ESMF_SUCCESS
-
-    field = ESMF_FieldCreate(lstream, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (rc /= ESMF_SUCCESS) return
 
     call ESMF_LocStreamGetKey(lstream, keyName='flux', farray=flux_p, rc=rc)
     call ESMF_FieldGet(field, farrayPtr=field_p, rc=rc)
