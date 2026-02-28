@@ -182,7 +182,6 @@ contains
     integer           :: bcasttmp(4)
     real(r8)          :: rbcasttmp(3)
     type(ESMF_VM)     :: vm
-    logical           :: isPresent, isSet
     character(len=*),parameter  :: subname=trim(modName)//':(InitializeAdvertise) '
     character(*)    ,parameter :: F00 = "('(" // trim(modName) // ") ',8a)"
     character(*)    ,parameter :: F01 = "('(" // trim(modName) // ") ',a,2x,i8)"
