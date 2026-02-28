@@ -1,6 +1,7 @@
 module dems_point_mapper_mod
 
   use ESMF
+  use pio
   use shr_kind_mod, only : r8=>shr_kind_r8, i4=>shr_kind_i4
   use shr_log_mod,  only : shr_log_error
 
@@ -9,7 +10,7 @@ module dems_point_mapper_mod
 
   public :: point_source_type
   public :: point_source_list_type
-  public :: dems_point_mapper_read_csv
+  public :: dems_point_mapper_read_ugrid
   public :: dems_point_mapper_map
   public :: dems_point_mapper_to_locstream
   public :: dems_point_mapper_create_field
@@ -26,44 +27,79 @@ module dems_point_mapper_mod
 
 contains
 
-  subroutine dems_point_mapper_read_csv(filename, ps_list, rc)
+  subroutine dems_point_mapper_read_ugrid(filename, pio_iosys, io_type, ps_list, rc)
     character(len=*), intent(in) :: filename
+    type(iosystem_desc_t), pointer :: pio_iosys
+    integer, intent(in) :: io_type
     type(point_source_list_type), intent(out) :: ps_list
     integer, intent(out) :: rc
 
-    integer :: unit, ierr, n
+    type(file_desc_t) :: pioid
+    type(var_desc_t)  :: varid_lon, varid_lat, varid_alt, varid_flux
+    integer :: dimid_node
+    integer :: nsources
+    integer :: ierr
+    real(r8), allocatable :: lon(:), lat(:), alt(:), flux(:)
 
     rc = ESMF_SUCCESS
 
-    open(newunit=unit, file=trim(filename), status='old', iostat=ierr)
-    if (ierr /= 0) then
+    ierr = pio_openfile(pio_iosys, pioid, io_type, trim(filename), pio_nowrite)
+    if (ierr /= PIO_NOERR) then
        rc = ESMF_FAILURE
        return
     endif
 
-    ! Count lines (skip header if any)
-    read(unit, *, iostat=ierr) ! Skip header
-    n = 0
-    do
-       read(unit, *, iostat=ierr)
-       if (ierr /= 0) exit
-       n = n + 1
+    ! In UGRID, nodes are the points for point sources.
+    ! We expect node_lon and node_lat.
+    ierr = pio_inq_dimid(pioid, 'nNodes', dimid_node)
+    if (ierr /= PIO_NOERR) then
+       ! Fallback to 'node' if 'nNodes' not found
+       ierr = pio_inq_dimid(pioid, 'node', dimid_node)
+    endif
+
+    if (ierr /= PIO_NOERR) then
+       call pio_closefile(pioid)
+       rc = ESMF_FAILURE
+       return
+    endif
+
+    ierr = pio_inq_dimlen(pioid, dimid_node, nsources)
+    ps_list%nsources = nsources
+    allocate(ps_list%sources(nsources))
+
+    allocate(lon(nsources), lat(nsources), alt(nsources), flux(nsources))
+    alt = 0.0_r8
+    flux = 0.0_r8
+
+    ierr = pio_inq_varid(pioid, 'node_lon', varid_lon)
+    ierr = pio_get_var(pioid, varid_lon, lon)
+
+    ierr = pio_inq_varid(pioid, 'node_lat', varid_lat)
+    ierr = pio_get_var(pioid, varid_lat, lat)
+
+    ! Optional altitude
+    ierr = pio_inq_varid(pioid, 'node_alt', varid_alt)
+    if (ierr == PIO_NOERR) then
+       ierr = pio_get_var(pioid, varid_alt, alt)
+    endif
+
+    ! For now, assume a single flux variable 'flux'
+    ierr = pio_inq_varid(pioid, 'flux', varid_flux)
+    if (ierr == PIO_NOERR) then
+       ierr = pio_get_var(pioid, varid_flux, flux)
+    endif
+
+    do ierr = 1, nsources
+       ps_list%sources(ierr)%lon = lon(ierr)
+       ps_list%sources(ierr)%lat = lat(ierr)
+       ps_list%sources(ierr)%alt = alt(ierr)
+       ps_list%sources(ierr)%flux = flux(ierr)
     end do
 
-    ps_list%nsources = n
-    allocate(ps_list%sources(n))
+    deallocate(lon, lat, alt, flux)
+    call pio_closefile(pioid)
 
-    rewind(unit)
-    read(unit, *) ! Skip header
-    do ierr = 1, n
-       read(unit, *) ps_list%sources(ierr)%lat, &
-                      ps_list%sources(ierr)%lon, &
-                      ps_list%sources(ierr)%alt, &
-                      ps_list%sources(ierr)%flux
-    end do
-
-    close(unit)
-  end subroutine dems_point_mapper_read_csv
+  end subroutine dems_point_mapper_read_ugrid
 
   subroutine dems_point_mapper_map(ps_list, grid, collapsed, field, rc)
     type(point_source_list_type), intent(inout) :: ps_list

@@ -83,7 +83,7 @@ module cdeps_dems_comp
   character(CX)                :: streamfilename = nullstr            ! filename to obtain stream info from
   character(CL)                :: dataMode = nullstr                  ! flags physics options wrt input data
   character(CL)                :: point_source_mode = 'collapsed'      ! collapsed or uncollapsed
-  character(CX)                :: point_source_filename = 'dems_point_sources.csv'
+  character(CX)                :: point_source_filename = 'dems_point_sources.nc'
   character(CX)                :: model_meshfile = nullstr            ! full pathname to model meshfile
   character(CX)                :: model_maskfile = nullstr            ! full pathname to obtain mask from
   character(CX)                :: restfilm = nullstr                  ! model restart file namelist
@@ -388,7 +388,7 @@ contains
 
           inquire(file=trim(point_source_filename), exist=file_exists)
           if (file_exists) then
-             call dems_point_mapper_read_csv(point_source_filename, point_sources, rc)
+             call dems_point_mapper_read_ugrid(point_source_filename, sdat%pio_subsystem, sdat%io_type, point_sources, rc)
              if (rc == ESMF_SUCCESS) then
                 if (ESMF_GridIsCreated(model_grid)) then
                    ! 1. Map point sources to grid indices (both modes need this)

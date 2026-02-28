@@ -1,5 +1,6 @@
 program test_dems_point_mapper
   use ESMF
+  use pio
   use dems_point_mapper_mod
   use shr_kind_mod, only : r8=>shr_kind_r8
 
@@ -15,15 +16,36 @@ program test_dems_point_mapper
   real(r8), pointer :: lon_ptr(:,:,:), lat_ptr(:,:,:), alt_ptr(:,:,:)
   real(r8), pointer :: field_ptr(:,:,:)
   integer :: unit
+  type(iosystem_desc_t), pointer :: pio_iosys
+  type(file_desc_t) :: pioid
+  integer :: dimid_node, ierr
+  type(var_desc_t) :: varid_lon, varid_lat, varid_alt, varid_flux
+  real(r8) :: lon_data(2), lat_data(2), alt_data(2), flux_data(2)
 
   call ESMF_Initialize(rc=rc)
 
-  ! 1. Create a mock point source CSV
-  open(newunit=unit, file='mock_point_sources.csv', status='replace')
-  write(unit, *) 'lat,lon,alt,flux'
-  write(unit, *) '10.0, 20.0, 500.0, 100.0'
-  write(unit, *) '10.1, 20.1, 510.0, 50.0'  ! Should fall in same cell if grid is coarse
-  close(unit)
+  ! Initialize PIO
+  allocate(pio_iosys)
+  call pio_init(0, 0, 1, 0, 1, PIO_REARR_BOX, pio_iosys)
+
+  ! 1. Create a mock point source NetCDF (UGRID)
+  lon_data = (/20.0, 20.1/)
+  lat_data = (/10.0, 10.1/)
+  alt_data = (/500.0, 510.0/)
+  flux_data = (/100.0, 50.0/)
+
+  ierr = pio_createfile(pio_iosys, pioid, PIO_IOTYPE_NETCDF, 'mock_point_sources.nc', PIO_CLOBBER)
+  ierr = pio_def_dim(pioid, 'nNodes', 2, dimid_node)
+  ierr = pio_def_var(pioid, 'node_lon', PIO_DOUBLE, (/dimid_node/), varid_lon)
+  ierr = pio_def_var(pioid, 'node_lat', PIO_DOUBLE, (/dimid_node/), varid_lat)
+  ierr = pio_def_var(pioid, 'node_alt', PIO_DOUBLE, (/dimid_node/), varid_alt)
+  ierr = pio_def_var(pioid, 'flux', PIO_DOUBLE, (/dimid_node/), varid_flux)
+  ierr = pio_enddef(pioid)
+  ierr = pio_put_var(pioid, varid_lon, lon_data)
+  ierr = pio_put_var(pioid, varid_lat, lat_data)
+  ierr = pio_put_var(pioid, varid_alt, alt_data)
+  ierr = pio_put_var(pioid, varid_flux, flux_data)
+  call pio_closefile(pioid)
 
   ! 2. Create a 3D ESMF_Grid
   counts = (/10, 10, 5/)
@@ -49,10 +71,10 @@ program test_dems_point_mapper
   ! 3. Create Field
   field = ESMF_FieldCreate(grid, typekind=ESMF_TYPEKIND_R8, rc=rc)
 
-  ! 4. Read CSV
-  call dems_point_mapper_read_csv('mock_point_sources.csv', ps_list, rc)
+  ! 4. Read UGRID NetCDF
+  call dems_point_mapper_read_ugrid('mock_point_sources.nc', pio_iosys, PIO_IOTYPE_NETCDF, ps_list, rc)
   if (rc /= ESMF_SUCCESS) then
-     print *, 'Failed to read CSV'
+     print *, 'Failed to read UGRID NetCDF'
      stop
   endif
 
@@ -116,5 +138,6 @@ program test_dems_point_mapper
      endif
   end block
 
+  call pio_finalize(pio_iosys)
   call ESMF_Finalize(rc=rc)
 end program test_dems_point_mapper
