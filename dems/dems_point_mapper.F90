@@ -162,26 +162,27 @@ contains
     call ESMF_LocStreamAddKey(lstream, keyName='grid_j', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
     call ESMF_LocStreamAddKey(lstream, keyName='grid_k', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
 
-    ! Retrieve pointers from LocStream keys using ESMF_LocStreamGet and keyData keyword.
-    call ESMF_LocStreamGet(lstream, keyName='latitude', localDE=0, keyData=lat_p, rc=rc)
+    ! Retrieve pointers from LocStream keys using ESMF_LocStreamGet and positional arguments.
+    ! Standard signature for single key retrieval: ESMF_LocStreamGet(lstream, keyName, keyData, localDE, rc)
+    call ESMF_LocStreamGet(lstream, 'latitude', lat_p, localDE=0, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGet(lstream, keyName='longitude', localDE=0, keyData=lon_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, 'longitude', lon_p, localDE=0, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGet(lstream, keyName='altitude', localDE=0, keyData=alt_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, 'altitude', alt_p, localDE=0, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGet(lstream, keyName='flux', localDE=0, keyData=flux_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, 'flux', flux_p, localDE=0, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGet(lstream, keyName='grid_i', localDE=0, keyData=i_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, 'grid_i', i_p, localDE=0, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGet(lstream, keyName='grid_j', localDE=0, keyData=j_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, 'grid_j', j_p, localDE=0, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGet(lstream, keyName='grid_k', localDE=0, keyData=k_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, 'grid_k', k_p, localDE=0, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
     do p = 1, ps_list%nsources
@@ -207,7 +208,7 @@ contains
     field = ESMF_FieldCreate(lstream, typekind=ESMF_TYPEKIND_R8, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGet(lstream, keyName='flux', localDE=0, keyData=flux_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, 'flux', flux_p, localDE=0, rc=rc)
     call ESMF_FieldGet(field, farrayPtr=field_p, rc=rc)
 
     field_p(:) = flux_p(:)
