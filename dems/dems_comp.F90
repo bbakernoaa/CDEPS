@@ -19,10 +19,10 @@ module cdeps_dems_comp
   use ESMF             , only : ESMF_FieldGet, ESMF_MAXSTR, ESMF_VMBroadcast
   use ESMF             , only : ESMF_TraceRegionEnter, ESMF_TraceRegionExit, ESMF_GridCompGet
   use ESMF             , only : ESMF_TYPEKIND_R8, ESMF_MESHLOC_ELEMENT, ESMF_FieldCreate
-  use ESMF             , only : ESMF_Grid, ESMF_GridIsCreated, ESMF_LocStream
+  use ESMF             , only : ESMF_Grid, ESMF_GridIsCreated, ESMF_LocStream, ESMF_DistGrid
+  use ESMF             , only : ESMF_DistGridCreate
   use NUOPC            , only : NUOPC_CompDerive, NUOPC_CompSetEntryPoint, NUOPC_CompSpecialize
   use NUOPC            , only : NUOPC_CompAttributeGet, NUOPC_Advertise
-  use NUOPC            , only : NUOPC_FieldDictionaryAddEntry
   use NUOPC_Model      , only : model_routine_SS        => SetServices
   use NUOPC_Model      , only : model_label_Advance     => label_Advance
   use NUOPC_Model      , only : model_label_SetRunClock => label_SetRunClock
@@ -555,11 +555,9 @@ contains
     rc = ESMF_SUCCESS
 
     call dshr_fldList_add(fldsExport, 'NOx')
-    call NUOPC_FieldDictionaryAddEntry(standardName='NOx', units='kg m-2 s-1', rc=rc)
     call NUOPC_Advertise(exportState, standardName='NOx', rc=rc)
 
     call dshr_fldList_add(fldsExport, 'CO')
-    call NUOPC_FieldDictionaryAddEntry(standardName='CO', units='kg m-2 s-1', rc=rc)
     call NUOPC_Advertise(exportState, standardName='CO', rc=rc)
 
     ! Field for point sources (only if collapsed)
@@ -567,10 +565,8 @@ contains
     ! but InitializeAdvertise reads namelist first.
     if (trim(point_source_mode) == 'collapsed') then
        call dshr_fldList_add(fldsExport, 'Point_Flux')
-       call NUOPC_FieldDictionaryAddEntry(standardName='Point_Flux', units='kg m-2 s-1', rc=rc)
        call NUOPC_Advertise(exportState, standardName='Point_Flux', rc=rc)
     else if (trim(point_source_mode) == 'uncollapsed') then
-       call NUOPC_FieldDictionaryAddEntry(standardName='Point_Flux_Uncollapsed', units='kg s-1', rc=rc)
        call NUOPC_Advertise(exportState, standardName='Point_Flux_Uncollapsed', rc=rc)
     endif
 
@@ -585,11 +581,6 @@ contains
     end if
   end subroutine ModelFinalize
 
-  subroutine SetVM(gcomp, rc)
-    type(ESMF_GridComp)  :: gcomp
-    integer, intent(out) :: rc
-    call setVM(gcomp, rc=rc)
-  end subroutine SetVM
 
 #ifdef CESMCOUPLED
 end module dems_comp_nuopc
