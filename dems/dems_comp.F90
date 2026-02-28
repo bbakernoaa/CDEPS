@@ -68,7 +68,6 @@ module cdeps_dems_comp
   integer                      :: flds_scalar_num = 0
   integer                      :: flds_scalar_index_nx = 0
   integer                      :: flds_scalar_index_ny = 0
-  integer                      :: flds_scalar_index_nz = 0
   integer                      :: mpicom                    ! mpi communicator
   integer                      :: my_task                   ! my task in mpi communicator mpicom
   logical                      :: mainproc                ! true of my_task == main_task
@@ -109,7 +108,6 @@ module cdeps_dems_comp
 
   ! constants
   integer                      :: idt                                 ! integer model timestep
-  logical                      :: diagnose_data = .true.
   integer          , parameter :: main_task   = 0                   ! task number of main task
 
 #ifdef CESMCOUPLED
@@ -487,7 +485,7 @@ contains
     if (first_time) then
        block
          type(fldlist_type), pointer :: fld
-         integer :: ns, nf, rank
+         integer :: rank
          type(ESMF_Field) :: lfield
          fld => fldsExport
          do while (associated(fld))
@@ -520,9 +518,6 @@ contains
     ! Sum stream fields if configured for aggregation.
     block
        type(fldlist_type), pointer :: fld
-       type(ESMF_Field) :: efield, sfield
-       real(r8), pointer :: eptr(:), sptr(:)
-       integer :: ns, strm_idx
        fld => fldsExport
        do while (associated(fld))
           ! Example: if multiple streams provide 'NOx', they are already summed
@@ -548,8 +543,6 @@ contains
     type(ESMF_GridComp)  :: gcomp
     type(ESMF_State)     :: exportState
     integer, intent(out) :: rc
-
-    character(CL) :: ps_mode
 
     ! Placeholder for dynamic advertisement based on stream files.
     ! For Session 1/4, let's advertise some standard fields.
