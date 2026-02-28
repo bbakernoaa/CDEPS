@@ -202,12 +202,63 @@ contains
     integer, intent(in) :: mins(3), maxs(3)
     integer, intent(out) :: best_i, best_j, best_k
 
+    real(r8) :: dx, dy, dz
+    real(r8) :: lon0, lat0, alt0
+    integer :: ni, nj, nk
+
+    ! Assume regular grid for performance, falling back to brute force if needed
+    ! For now, let's implement a faster bounding-box search if possible,
+    ! or just assume regular grid and calculate indices.
+
+    ni = maxs(1) - mins(1) + 1
+    nj = maxs(2) - mins(2) + 1
+    nk = maxs(3) - mins(3) + 1
+
+    if (ni > 1 .and. nj > 1) then
+       lon0 = lon(mins(1), mins(2), mins(3))
+       lat0 = lat(mins(1), mins(2), mins(3))
+       alt0 = alt(mins(1), mins(2), mins(3))
+
+       dx = (lon(maxs(1), mins(2), mins(3)) - lon0) / real(ni-1, r8)
+       dy = (lat(mins(1), maxs(2), mins(3)) - lat0) / real(nj-1, r8)
+       dz = (alt(mins(1), mins(2), maxs(3)) - alt0) / real(max(1, nk-1), r8)
+
+       if (abs(dx) > 1.0e-8_r8) then
+          best_i = mins(1) + nint((source%lon - lon0) / dx)
+       else
+          best_i = mins(1)
+       endif
+
+       if (abs(dy) > 1.0e-8_r8) then
+          best_j = mins(2) + nint((source%lat - lat0) / dy)
+       else
+          best_j = mins(2)
+       endif
+
+       if (nk > 1 .and. abs(dz) > 1.0e-8_r8) then
+          best_k = mins(3) + nint((source%alt - alt0) / dz)
+       else
+          best_k = mins(3)
+       endif
+
+       ! Clamp indices
+       best_i = max(mins(1), min(maxs(1), best_i))
+       best_j = max(mins(2), min(maxs(2), best_j))
+       best_k = max(mins(3), min(maxs(3), best_k))
+    else
+       ! Fallback to brute force for tiny grids
+       call brute_force_3d(source, lon, lat, alt, mins, maxs, best_i, best_j, best_k)
+    endif
+  end subroutine find_nearest_cell_3d
+
+  subroutine brute_force_3d(source, lon, lat, alt, mins, maxs, best_i, best_j, best_k)
+    type(point_source_type), intent(in) :: source
+    real(r8), pointer :: lon(:,:,:), lat(:,:,:), alt(:,:,:)
+    integer, intent(in) :: mins(3), maxs(3)
+    integer, intent(out) :: best_i, best_j, best_k
     real(r8) :: min_dist, dist
     integer :: i, j, k
-
     min_dist = 1.0e30_r8
-    best_i = mins(1); best_j = mins(2); best_k = mins(3)
-
     do k = mins(3), maxs(3)
        do j = mins(2), maxs(2)
           do i = mins(1), maxs(1)
@@ -216,14 +267,12 @@ contains
                     (alt(i,j,k) - source%alt)**2
              if (dist < min_dist) then
                 min_dist = dist
-                best_i = i
-                best_j = j
-                best_k = k
+                best_i = i; best_j = j; best_k = k
              endif
           end do
        end do
     end do
-  end subroutine find_nearest_cell_3d
+  end subroutine brute_force_3d
 
   subroutine find_nearest_cell_2d(source, lon, lat, mins, maxs, best_i, best_j)
     type(point_source_type), intent(in) :: source
@@ -231,23 +280,37 @@ contains
     integer, intent(in) :: mins(3), maxs(3)
     integer, intent(out) :: best_i, best_j
 
-    real(r8) :: min_dist, dist
-    integer :: i, j
+    real(r8) :: dx, dy
+    real(r8) :: lon0, lat0
+    integer :: ni, nj
 
-    min_dist = 1.0e30_r8
-    best_i = mins(1); best_j = mins(2)
+    ni = maxs(1) - mins(1) + 1
+    nj = maxs(2) - mins(2) + 1
 
-    do j = mins(2), maxs(2)
-       do i = mins(1), maxs(1)
-          dist = (lon(i,j) - source%lon)**2 + &
-                 (lat(i,j) - source%lat)**2
-          if (dist < min_dist) then
-             min_dist = dist
-             best_i = i
-             best_j = j
-          endif
-       end do
-    end do
+    if (ni > 1 .and. nj > 1) then
+       lon0 = lon(mins(1), mins(2))
+       lat0 = lat(mins(1), mins(2))
+
+       dx = (lon(maxs(1), mins(2)) - lon0) / real(ni-1, r8)
+       dy = (lat(mins(1), maxs(2)) - lat0) / real(nj-1, r8)
+
+       if (abs(dx) > 1.0e-8_r8) then
+          best_i = mins(1) + nint((source%lon - lon0) / dx)
+       else
+          best_i = mins(1)
+       endif
+
+       if (abs(dy) > 1.0e-8_r8) then
+          best_j = mins(2) + nint((source%lat - lat0) / dy)
+       else
+          best_j = mins(2)
+       endif
+
+       best_i = max(mins(1), min(maxs(1), best_i))
+       best_j = max(mins(2), min(maxs(2), best_j))
+    else
+       best_i = mins(1); best_j = mins(2)
+    endif
   end subroutine find_nearest_cell_2d
 
 end module dems_point_mapper_mod
