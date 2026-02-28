@@ -80,10 +80,11 @@ contains
     real(r8), pointer :: lon_ptr2(:,:), lat_ptr2(:,:)
     real(r8), pointer :: field_ptr(:,:,:)
     real(r8), pointer :: field_ptr2(:,:)
+    type(ESMF_DistGrid) :: dg
 
     rc = ESMF_SUCCESS
 
-    call ESMF_GridGet(grid, dimCount=dimCount, rc=rc)
+    call ESMF_GridGet(grid, dimCount=dimCount, distgrid=dg, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
     if (dimCount == 3) then
@@ -161,27 +162,27 @@ contains
     call ESMF_LocStreamAddKey(lstream, keyName='grid_j', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
     call ESMF_LocStreamAddKey(lstream, keyName='grid_k', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
 
-    ! Attempt to retrieve pointers from LocStream keys using both documented keywords
-    call ESMF_LocStreamGetKey(lstream, keyName='latitude', farrayPtr=lat_p, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGetKey(lstream, keyName='latitude', keyData=lat_p, rc=rc)
+    ! Retrieve pointers from LocStream keys using ESMF_LocStreamGet and keyData keyword.
+    call ESMF_LocStreamGet(lstream, keyName='latitude', localDE=0, keyData=lat_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='longitude', farrayPtr=lon_p, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGetKey(lstream, keyName='longitude', keyData=lon_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, keyName='longitude', localDE=0, keyData=lon_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='altitude', farrayPtr=alt_p, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGetKey(lstream, keyName='altitude', keyData=alt_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, keyName='altitude', localDE=0, keyData=alt_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_p, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGetKey(lstream, keyName='flux', keyData=flux_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, keyName='flux', localDE=0, keyData=flux_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_i', farrayPtr=i_p, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGetKey(lstream, keyName='grid_i', keyData=i_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, keyName='grid_i', localDE=0, keyData=i_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_j', farrayPtr=j_p, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGetKey(lstream, keyName='grid_j', keyData=j_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, keyName='grid_j', localDE=0, keyData=j_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_k', farrayPtr=k_p, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGetKey(lstream, keyName='grid_k', keyData=k_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, keyName='grid_k', localDE=0, keyData=k_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
 
     do p = 1, ps_list%nsources
        lat_p(p) = ps_list%sources(p)%lat
@@ -206,8 +207,7 @@ contains
     field = ESMF_FieldCreate(lstream, typekind=ESMF_TYPEKIND_R8, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_p, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGetKey(lstream, keyName='flux', keyData=flux_p, rc=rc)
+    call ESMF_LocStreamGet(lstream, keyName='flux', localDE=0, keyData=flux_p, rc=rc)
     call ESMF_FieldGet(field, farrayPtr=field_p, rc=rc)
 
     field_p(:) = flux_p(:)

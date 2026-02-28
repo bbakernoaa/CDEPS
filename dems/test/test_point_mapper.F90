@@ -90,8 +90,14 @@ program test_dems_point_mapper
 
      call dems_point_mapper_to_locstream(ps_list, lstream, rc)
      if (rc == ESMF_SUCCESS) then
-        call ESMF_LocStreamGetKey(lstream, keyName='latitude', farrayPtr=lat_p, rc=rc)
-        call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_p, rc=rc)
+        call ESMF_LocStreamGet(lstream, keyName='latitude', localDE=0, keyData=lat_p, rc=rc)
+        if (rc /= ESMF_SUCCESS) then
+           print *, 'Failed to get latitude key from LocStream'
+        endif
+        call ESMF_LocStreamGet(lstream, keyName='flux', localDE=0, keyData=flux_p, rc=rc)
+        if (rc /= ESMF_SUCCESS) then
+           print *, 'Failed to get flux key from LocStream'
+        endif
         if (size(lat_p) == 2 .and. abs(flux_p(1) - 100.0_r8) < 1.0e-5 .and. abs(flux_p(2) - 50.0_r8) < 1.0e-5) then
            print *, 'SUCCESS: LocStream contains individual point sources.'
         else
