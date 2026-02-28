@@ -1,7 +1,7 @@
 module dems_point_mapper_mod
 
   use ESMF
-  use shr_kind_mod, only : r8=>shr_kind_r8
+  use shr_kind_mod, only : r8=>shr_kind_r8, i4=>shr_kind_i4
   use shr_log_mod,  only : shr_log_error
 
   implicit none
@@ -77,6 +77,8 @@ contains
     integer :: i, j, k, p
     integer :: dimCount
     integer :: minIndex(3), maxIndex(3)
+    integer :: minI2(2), maxI2(2)
+    type(ESMF_DistGrid) :: distgrid
     real(r8), pointer :: lon_ptr(:,:,:), lat_ptr(:,:,:), alt_ptr(:,:,:)
     real(r8), pointer :: lon_ptr2(:,:), lat_ptr2(:,:), alt_ptr2(:,:)
     real(r8), pointer :: field_ptr(:,:,:)
@@ -85,18 +87,16 @@ contains
 
     rc = ESMF_SUCCESS
 
-    ! Get grid boundaries
-    call ESMF_GridGet(grid, dimCount=dimCount, rc=rc)
+    ! Get grid boundaries via DistGrid for robustness
+    call ESMF_GridGet(grid, dimCount=dimCount, distGrid=distgrid, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
     if (dimCount == 3) then
-       call ESMF_GridGet(grid, localDe=0, &
-            exclusiveLBound=minIndex, exclusiveUBound=maxIndex, rc=rc)
+       call ESMF_DistGridGet(distgrid, localDe=0, exclusiveLBound=minIndex, exclusiveUBound=maxIndex, rc=rc)
     else
-       call ESMF_GridGet(grid, localDe=0, &
-            exclusiveLBound=minIndex(1:2), exclusiveUBound=maxIndex(1:2), rc=rc)
-       minIndex(3) = 1
-       maxIndex(3) = 1
+       call ESMF_DistGridGet(distgrid, localDe=0, exclusiveLBound=minI2, exclusiveUBound=maxI2, rc=rc)
+       minIndex(1:2) = minI2; maxIndex(1:2) = maxI2
+       minIndex(3) = 1; maxIndex(3) = 1
     endif
 
     if (dimCount == 3) then
@@ -130,7 +130,7 @@ contains
        endif
 
        do p = 1, ps_list%nsources
-          call find_nearest_cell_2d(ps_list%sources(p), lon_ptr2, lat_ptr2, minIndex, maxIndex, &
+          call find_nearest_cell_2d(ps_list%sources(p), lon_ptr2, lat_ptr2, minIndex(1:2), maxIndex(1:2), &
                ps_list%sources(p)%i, ps_list%sources(p)%j)
           ps_list%sources(p)%k = 1
 
@@ -150,7 +150,7 @@ contains
     integer, intent(out) :: rc
 
     real(r8), pointer :: lat_ptr(:), lon_ptr(:), alt_ptr(:), flux_ptr(:)
-    integer, pointer :: i_ptr4(:), j_ptr4(:), k_ptr4(:)
+    integer(i4), pointer :: i_ptr4(:), j_ptr4(:), k_ptr4(:)
     integer :: localCount
     integer :: p
 
@@ -160,21 +160,21 @@ contains
     lstream = ESMF_LocStreamCreate(localCount=localCount, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamAddKey(lstream, keyName='latitude', rc=rc)
-    call ESMF_LocStreamAddKey(lstream, keyName='longitude', rc=rc)
-    call ESMF_LocStreamAddKey(lstream, keyName='altitude', rc=rc)
-    call ESMF_LocStreamAddKey(lstream, keyName='flux', rc=rc)
+    call ESMF_LocStreamAddKey(lstream, keyName='latitude', keyTypekind=ESMF_TYPEKIND_R8, rc=rc)
+    call ESMF_LocStreamAddKey(lstream, keyName='longitude', keyTypekind=ESMF_TYPEKIND_R8, rc=rc)
+    call ESMF_LocStreamAddKey(lstream, keyName='altitude', keyTypekind=ESMF_TYPEKIND_R8, rc=rc)
+    call ESMF_LocStreamAddKey(lstream, keyName='flux', keyTypekind=ESMF_TYPEKIND_R8, rc=rc)
     call ESMF_LocStreamAddKey(lstream, keyName='grid_i', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
     call ESMF_LocStreamAddKey(lstream, keyName='grid_j', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
     call ESMF_LocStreamAddKey(lstream, keyName='grid_k', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
 
-    call ESMF_LocStreamGetKey(lstream, 'latitude', lat_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, 'longitude', lon_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, 'altitude', alt_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, 'flux', flux_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, 'grid_i', i_ptr4, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, 'grid_j', j_ptr4, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, 'grid_k', k_ptr4, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='latitude', farrayPtr=lat_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='longitude', farrayPtr=lon_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='altitude', farrayPtr=alt_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='grid_i', farrayPtr=i_ptr4, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='grid_j', farrayPtr=j_ptr4, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='grid_k', farrayPtr=k_ptr4, rc=rc)
 
     do p = 1, ps_list%nsources
        lat_ptr(p) = ps_list%sources(p)%lat
@@ -199,7 +199,7 @@ contains
     field = ESMF_FieldCreate(lstream, typekind=ESMF_TYPEKIND_R8, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, 'flux', flux_ptr, rc=rc)
+    call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_ptr, rc=rc)
     call ESMF_FieldGet(field, farrayPtr=field_ptr, rc=rc)
 
     field_ptr(:) = flux_ptr(:)
@@ -216,10 +216,6 @@ contains
     real(r8) :: lon0, lat0, alt0
     integer :: ni, nj, nk
 
-    ! Assume regular grid for performance, falling back to brute force if needed
-    ! For now, let's implement a faster bounding-box search if possible,
-    ! or just assume regular grid and calculate indices.
-
     ni = maxs(1) - mins(1) + 1
     nj = maxs(2) - mins(2) + 1
     nk = maxs(3) - mins(3) + 1
@@ -229,8 +225,8 @@ contains
        lat0 = lat(mins(1), mins(2), mins(3))
        alt0 = alt(mins(1), mins(2), mins(3))
 
-       dx = (lon(maxs(1), mins(2), mins(3)) - lon0) / real(ni-1, r8)
-       dy = (lat(mins(1), maxs(2), mins(3)) - lat0) / real(nj-1, r8)
+       dx = (lon(maxs(1), mins(2), mins(3)) - lon0) / real(max(1, ni-1), r8)
+       dy = (lat(mins(1), maxs(2), mins(3)) - lat0) / real(max(1, nj-1), r8)
        dz = (alt(mins(1), mins(2), maxs(3)) - alt0) / real(max(1, nk-1), r8)
 
        if (abs(dx) > 1.0e-8_r8) then
@@ -256,7 +252,6 @@ contains
        best_j = max(mins(2), min(maxs(2), best_j))
        best_k = max(mins(3), min(maxs(3), best_k))
     else
-       ! Fallback to brute force for tiny grids
        call brute_force_3d(source, lon, lat, alt, mins, maxs, best_i, best_j, best_k)
     endif
   end subroutine find_nearest_cell_3d
@@ -287,7 +282,7 @@ contains
   subroutine find_nearest_cell_2d(source, lon, lat, mins, maxs, best_i, best_j)
     type(point_source_type), intent(in) :: source
     real(r8), pointer :: lon(:,:), lat(:,:)
-    integer, intent(in) :: mins(3), maxs(3)
+    integer, intent(in) :: mins(2), maxs(2)
     integer, intent(out) :: best_i, best_j
 
     real(r8) :: dx, dy
@@ -301,8 +296,8 @@ contains
        lon0 = lon(mins(1), mins(2))
        lat0 = lat(mins(1), mins(2))
 
-       dx = (lon(maxs(1), mins(2)) - lon0) / real(ni-1, r8)
-       dy = (lat(mins(1), maxs(2)) - lat0) / real(nj-1, r8)
+       dx = (lon(maxs(1), mins(2)) - lon0) / real(max(1, ni-1), r8)
+       dy = (lat(mins(1), maxs(2)) - lat0) / real(max(1, nj-1), r8)
 
        if (abs(dx) > 1.0e-8_r8) then
           best_i = mins(1) + nint((source%lon - lon0) / dx)
