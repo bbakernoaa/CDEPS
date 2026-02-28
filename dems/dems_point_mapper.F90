@@ -32,7 +32,6 @@ contains
     integer, intent(out) :: rc
 
     integer :: unit, ierr, n
-    character(len=256) :: line
     real(r8) :: lat, lon, alt, flux
 
     rc = ESMF_SUCCESS
@@ -77,32 +76,23 @@ contains
     integer :: i, j, k, p
     integer :: dimCount
     integer :: minIndex(3), maxIndex(3)
-    integer :: minI2(2), maxI2(2)
-    type(ESMF_DistGrid) :: distgrid
     real(r8), pointer :: lon_ptr(:,:,:), lat_ptr(:,:,:), alt_ptr(:,:,:)
-    real(r8), pointer :: lon_ptr2(:,:), lat_ptr2(:,:), alt_ptr2(:,:)
+    real(r8), pointer :: lon_ptr2(:,:), lat_ptr2(:,:)
     real(r8), pointer :: field_ptr(:,:,:)
     real(r8), pointer :: field_ptr2(:,:)
-    logical :: found
 
     rc = ESMF_SUCCESS
 
-    ! Get grid boundaries via DistGrid for robustness
-    call ESMF_GridGet(grid, dimCount=dimCount, distGrid=distgrid, rc=rc)
+    call ESMF_GridGet(grid, dimCount=dimCount, rc=rc)
     if (rc /= ESMF_SUCCESS) return
-
-    if (dimCount == 3) then
-       call ESMF_DistGridGet(distgrid, localDe=0, exclusiveLBound=minIndex, exclusiveUBound=maxIndex, rc=rc)
-    else
-       call ESMF_DistGridGet(distgrid, localDe=0, exclusiveLBound=minI2, exclusiveUBound=maxI2, rc=rc)
-       minIndex(1:2) = minI2; maxIndex(1:2) = maxI2
-       minIndex(3) = 1; maxIndex(3) = 1
-    endif
 
     if (dimCount == 3) then
        call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=lon_ptr, rc=rc)
        call ESMF_GridGetCoord(grid, coordDim=2, farrayPtr=lat_ptr, rc=rc)
        call ESMF_GridGetCoord(grid, coordDim=3, farrayPtr=alt_ptr, rc=rc)
+
+       minIndex = lbound(lon_ptr)
+       maxIndex = ubound(lon_ptr)
 
        if (collapsed) then
           call ESMF_FieldGet(field, farrayPtr=field_ptr, rc=rc)
@@ -123,6 +113,9 @@ contains
     else
        call ESMF_GridGetCoord(grid, coordDim=1, farrayPtr=lon_ptr2, rc=rc)
        call ESMF_GridGetCoord(grid, coordDim=2, farrayPtr=lat_ptr2, rc=rc)
+
+       minIndex(1:2) = lbound(lon_ptr2)
+       maxIndex(1:2) = ubound(lon_ptr2)
 
        if (collapsed) then
           call ESMF_FieldGet(field, farrayPtr=field_ptr2, rc=rc)
