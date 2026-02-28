@@ -686,6 +686,7 @@ contains
     type(var_desc_t)        :: varid
     integer                 :: stream_nlev
     integer                 :: old_handle    ! previous setting of pio error handling
+    integer                 :: i
     character(CS)           :: units
     character(*), parameter :: subname = '(shr_strdata_set_stream_domain) '
     ! ----------------------------------------------
@@ -693,32 +694,52 @@ contains
     rc = ESMF_SUCCESS
 
     ! Set ungridded dimension to the number of vertical level - must read this in
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    if (sdat%mainproc) then
+       call shr_stream_getData(sdat%stream(stream_index), 1, filename)
+    end if
+    call ESMF_VMBroadCast(vm, filename, CX, 0, rc=rc)
+    rcode = pio_openfile(sdat%pio_subsystem, pioid, sdat%io_type, trim(filename), pio_nowrite)
+
+    if (trim(sdat%stream(stream_index)%lev_dimname) == 'null') then
+       ! Try to auto-detect vertical dimension
+       if (pio_inq_dimid(pioid, 'z', dimid) == PIO_NOERR) then
+          sdat%stream(stream_index)%lev_dimname = 'z'
+       else if (pio_inq_dimid(pioid, 'k', dimid) == PIO_NOERR) then
+          sdat%stream(stream_index)%lev_dimname = 'k'
+       else if (pio_inq_dimid(pioid, 'lev', dimid) == PIO_NOERR) then
+          sdat%stream(stream_index)%lev_dimname = 'lev'
+       endif
+    endif
+
     if (trim(sdat%stream(stream_index)%lev_dimname) == 'null') then
        stream_nlev = 1
+       call pio_closefile(pioid)
     else
-       call ESMF_VMGetCurrent(vm, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       if (sdat%mainproc) then
-          call shr_stream_getData(sdat%stream(stream_index), 1, filename)
-       end if
-       call ESMF_VMBroadCast(vm, filename, CX, 0, rc=rc)
-       rcode = pio_openfile(sdat%pio_subsystem, pioid, sdat%io_type, trim(filename), pio_nowrite)
        rcode = pio_inq_dimid(pioid, trim(sdat%stream(stream_index)%lev_dimname), dimid)
        rcode = pio_inq_dimlen(pioid, dimid, stream_nlev)
        allocate(sdat%pstrm(stream_index)%stream_vlevs(stream_nlev))
        rcode = pio_inq_varid(pioid, trim(sdat%stream(stream_index)%lev_dimname), varid)
-       rcode = pio_get_var(pioid, varid, sdat%pstrm(stream_index)%stream_vlevs)
-
-       ! Determine vertical coordinates units - assume that default is m
-       call pio_seterrorhandling(pioid, PIO_BCAST_ERROR, old_handle)
-       rcode = pio_inq_att(pioid, varid, 'units')
-       call pio_seterrorhandling(pioid, old_handle)
        if (rcode == PIO_NOERR) then
-          rcode = pio_get_att(pioid, varid, 'units', units)
-          if (trim(units) == 'centimeters' .or. trim(units) == 'cm') then
-             sdat%pstrm(stream_index)%stream_vlevs(:) = sdat%pstrm(stream_index)%stream_vlevs(:) / 100.
+          rcode = pio_get_var(pioid, varid, sdat%pstrm(stream_index)%stream_vlevs)
+
+          ! Determine vertical coordinates units - assume that default is m
+          call pio_seterrorhandling(pioid, PIO_BCAST_ERROR, old_handle)
+          rcode = pio_inq_att(pioid, varid, 'units')
+          call pio_seterrorhandling(pioid, old_handle)
+          if (rcode == PIO_NOERR) then
+             rcode = pio_get_att(pioid, varid, 'units', units)
+             if (trim(units) == 'centimeters' .or. trim(units) == 'cm') then
+                sdat%pstrm(stream_index)%stream_vlevs(:) = sdat%pstrm(stream_index)%stream_vlevs(:) / 100.
+             end if
           end if
-       end if
+       else
+          ! Dimension exists but no coordinate variable? Just set indices
+          do i=1, stream_nlev
+             sdat%pstrm(stream_index)%stream_vlevs(i) = real(i, r8)
+          enddo
+       endif
        call pio_closefile(pioid)
     end if
     if (sdat%mainproc) then
