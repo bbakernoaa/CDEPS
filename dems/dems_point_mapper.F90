@@ -1,7 +1,6 @@
 module dems_point_mapper_mod
 
   use ESMF
-  use shr_kind_mod, only : r8=>shr_kind_r8, i4=>shr_kind_i4
   use shr_log_mod,  only : shr_log_error
 
   implicit none
@@ -15,7 +14,7 @@ module dems_point_mapper_mod
   public :: dems_point_mapper_create_field
 
   type point_source_type
-     real(r8) :: lat, lon, alt, flux
+     real(ESMF_KIND_R8) :: lat, lon, alt, flux
      integer  :: i, j, k  ! Mapped grid indices (1-based)
   end type point_source_type
 
@@ -32,7 +31,7 @@ contains
     integer, intent(out) :: rc
 
     integer :: unit, ierr, n
-    real(r8) :: lat, lon, alt, flux
+    real(ESMF_KIND_R8) :: lat, lon, alt, flux
 
     rc = ESMF_SUCCESS
 
@@ -76,10 +75,10 @@ contains
     integer :: i, j, k, p
     integer :: dimCount
     integer :: minIndex(3), maxIndex(3)
-    real(r8), pointer :: lon_ptr(:,:,:), lat_ptr(:,:,:), alt_ptr(:,:,:)
-    real(r8), pointer :: lon_ptr2(:,:), lat_ptr2(:,:)
-    real(r8), pointer :: field_ptr(:,:,:)
-    real(r8), pointer :: field_ptr2(:,:)
+    real(ESMF_KIND_R8), pointer :: lon_ptr(:,:,:), lat_ptr(:,:,:), alt_ptr(:,:,:)
+    real(ESMF_KIND_R8), pointer :: lon_ptr2(:,:), lat_ptr2(:,:)
+    real(ESMF_KIND_R8), pointer :: field_ptr(:,:,:)
+    real(ESMF_KIND_R8), pointer :: field_ptr2(:,:)
 
     rc = ESMF_SUCCESS
 
@@ -96,7 +95,7 @@ contains
 
        if (collapsed) then
           call ESMF_FieldGet(field, farrayPtr=field_ptr, rc=rc)
-          field_ptr = 0.0_r8
+          field_ptr = 0.0_ESMF_KIND_R8
        endif
 
        do p = 1, ps_list%nsources
@@ -119,7 +118,7 @@ contains
 
        if (collapsed) then
           call ESMF_FieldGet(field, farrayPtr=field_ptr2, rc=rc)
-          field_ptr2 = 0.0_r8
+          field_ptr2 = 0.0_ESMF_KIND_R8
        endif
 
        do p = 1, ps_list%nsources
@@ -142,8 +141,8 @@ contains
     type(ESMF_LocStream), intent(inout) :: lstream
     integer, intent(out) :: rc
 
-    real(r8), pointer :: lat_ptr(:), lon_ptr(:), alt_ptr(:), flux_ptr(:)
-    integer(i4), pointer :: i_ptr4(:), j_ptr4(:), k_ptr4(:)
+    real(ESMF_KIND_R8), pointer :: lat_p(:), lon_p(:), alt_p(:), flux_p(:)
+    integer(ESMF_KIND_I4), pointer :: i_p(:), j_p(:), k_p(:)
     integer :: localCount
     integer :: p
 
@@ -161,22 +160,36 @@ contains
     call ESMF_LocStreamAddKey(lstream, keyName='grid_j', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
     call ESMF_LocStreamAddKey(lstream, keyName='grid_k', keyTypekind=ESMF_TYPEKIND_I4, rc=rc)
 
-    call ESMF_LocStreamGetKey(lstream, keyName='latitude', farrayPtr=lat_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='longitude', farrayPtr=lon_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='altitude', farrayPtr=alt_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_ptr, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_i', farrayPtr=i_ptr4, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_j', farrayPtr=j_ptr4, rc=rc)
-    call ESMF_LocStreamGetKey(lstream, keyName='grid_k', farrayPtr=k_ptr4, rc=rc)
+    ! Attempt to get pointers directly. If keyword farrayPtr fails, positional or keyData might work.
+    call ESMF_LocStreamGet(lstream, keyName='latitude', farrayPtr=lat_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGet(lstream, keyName='latitude', keyData=lat_p, rc=rc)
+
+    call ESMF_LocStreamGet(lstream, keyName='longitude', farrayPtr=lon_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGet(lstream, keyName='longitude', keyData=lon_p, rc=rc)
+
+    call ESMF_LocStreamGet(lstream, keyName='altitude', farrayPtr=alt_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGet(lstream, keyName='altitude', keyData=alt_p, rc=rc)
+
+    call ESMF_LocStreamGet(lstream, keyName='flux', farrayPtr=flux_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGet(lstream, keyName='flux', keyData=flux_p, rc=rc)
+
+    call ESMF_LocStreamGet(lstream, keyName='grid_i', farrayPtr=i_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGet(lstream, keyName='grid_i', keyData=i_p, rc=rc)
+
+    call ESMF_LocStreamGet(lstream, keyName='grid_j', farrayPtr=j_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGet(lstream, keyName='grid_j', keyData=j_p, rc=rc)
+
+    call ESMF_LocStreamGet(lstream, keyName='grid_k', farrayPtr=k_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGet(lstream, keyName='grid_k', keyData=k_p, rc=rc)
 
     do p = 1, ps_list%nsources
-       lat_ptr(p) = ps_list%sources(p)%lat
-       lon_ptr(p) = ps_list%sources(p)%lon
-       alt_ptr(p) = ps_list%sources(p)%alt
-       flux_ptr(p) = ps_list%sources(p)%flux
-       i_ptr4(p) = ps_list%sources(p)%i
-       j_ptr4(p) = ps_list%sources(p)%j
-       k_ptr4(p) = ps_list%sources(p)%k
+       lat_p(p) = ps_list%sources(p)%lat
+       lon_p(p) = ps_list%sources(p)%lon
+       alt_p(p) = ps_list%sources(p)%alt
+       flux_p(p) = ps_list%sources(p)%flux
+       i_p(p) = ps_list%sources(p)%i
+       j_p(p) = ps_list%sources(p)%j
+       k_p(p) = ps_list%sources(p)%k
     end do
   end subroutine dems_point_mapper_to_locstream
 
@@ -185,28 +198,29 @@ contains
     type(ESMF_Field), intent(out) :: field
     integer, intent(out) :: rc
 
-    real(r8), pointer :: flux_ptr(:), field_ptr(:)
+    real(ESMF_KIND_R8), pointer :: flux_p(:), field_p(:)
 
     rc = ESMF_SUCCESS
 
     field = ESMF_FieldCreate(lstream, typekind=ESMF_TYPEKIND_R8, rc=rc)
     if (rc /= ESMF_SUCCESS) return
 
-    call ESMF_LocStreamGetKey(lstream, keyName='flux', farrayPtr=flux_ptr, rc=rc)
-    call ESMF_FieldGet(field, farrayPtr=field_ptr, rc=rc)
+    call ESMF_LocStreamGet(lstream, keyName='flux', farrayPtr=flux_p, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_LocStreamGet(lstream, keyName='flux', keyData=flux_p, rc=rc)
+    call ESMF_FieldGet(field, farrayPtr=field_p, rc=rc)
 
-    field_ptr(:) = flux_ptr(:)
+    field_p(:) = flux_p(:)
 
   end subroutine dems_point_mapper_create_field
 
   subroutine find_nearest_cell_3d(source, lon, lat, alt, mins, maxs, best_i, best_j, best_k)
     type(point_source_type), intent(in) :: source
-    real(r8), pointer :: lon(:,:,:), lat(:,:,:), alt(:,:,:)
+    real(ESMF_KIND_R8), pointer :: lon(:,:,:), lat(:,:,:), alt(:,:,:)
     integer, intent(in) :: mins(3), maxs(3)
     integer, intent(out) :: best_i, best_j, best_k
 
-    real(r8) :: dx, dy, dz
-    real(r8) :: lon0, lat0, alt0
+    real(ESMF_KIND_R8) :: dx, dy, dz
+    real(ESMF_KIND_R8) :: lon0, lat0, alt0
     integer :: ni, nj, nk
 
     ni = maxs(1) - mins(1) + 1
@@ -218,23 +232,23 @@ contains
        lat0 = lat(mins(1), mins(2), mins(3))
        alt0 = alt(mins(1), mins(2), mins(3))
 
-       dx = (lon(maxs(1), mins(2), mins(3)) - lon0) / real(max(1, ni-1), r8)
-       dy = (lat(mins(1), maxs(2), mins(3)) - lat0) / real(max(1, nj-1), r8)
-       dz = (alt(mins(1), mins(2), maxs(3)) - alt0) / real(max(1, nk-1), r8)
+       dx = (lon(maxs(1), mins(2), mins(3)) - lon0) / real(max(1, ni-1), ESMF_KIND_R8)
+       dy = (lat(mins(1), maxs(2), mins(3)) - lat0) / real(max(1, nj-1), ESMF_KIND_R8)
+       dz = (alt(mins(1), mins(2), maxs(3)) - alt0) / real(max(1, nk-1), ESMF_KIND_R8)
 
-       if (abs(dx) > 1.0e-8_r8) then
+       if (abs(dx) > 1.0e-8_ESMF_KIND_R8) then
           best_i = mins(1) + nint((source%lon - lon0) / dx)
        else
           best_i = mins(1)
        endif
 
-       if (abs(dy) > 1.0e-8_r8) then
+       if (abs(dy) > 1.0e-8_ESMF_KIND_R8) then
           best_j = mins(2) + nint((source%lat - lat0) / dy)
        else
           best_j = mins(2)
        endif
 
-       if (nk > 1 .and. abs(dz) > 1.0e-8_r8) then
+       if (nk > 1 .and. abs(dz) > 1.0e-8_ESMF_KIND_R8) then
           best_k = mins(3) + nint((source%alt - alt0) / dz)
        else
           best_k = mins(3)
@@ -251,12 +265,12 @@ contains
 
   subroutine brute_force_3d(source, lon, lat, alt, mins, maxs, best_i, best_j, best_k)
     type(point_source_type), intent(in) :: source
-    real(r8), pointer :: lon(:,:,:), lat(:,:,:), alt(:,:,:)
+    real(ESMF_KIND_R8), pointer :: lon(:,:,:), lat(:,:,:), alt(:,:,:)
     integer, intent(in) :: mins(3), maxs(3)
     integer, intent(out) :: best_i, best_j, best_k
-    real(r8) :: min_dist, dist
+    real(ESMF_KIND_R8) :: min_dist, dist
     integer :: i, j, k
-    min_dist = 1.0e30_r8
+    min_dist = 1.0e30_ESMF_KIND_R8
     do k = mins(3), maxs(3)
        do j = mins(2), maxs(2)
           do i = mins(1), maxs(1)
@@ -274,12 +288,12 @@ contains
 
   subroutine find_nearest_cell_2d(source, lon, lat, mins, maxs, best_i, best_j)
     type(point_source_type), intent(in) :: source
-    real(r8), pointer :: lon(:,:), lat(:,:)
+    real(ESMF_KIND_R8), pointer :: lon(:,:), lat(:,:)
     integer, intent(in) :: mins(2), maxs(2)
     integer, intent(out) :: best_i, best_j
 
-    real(r8) :: dx, dy
-    real(r8) :: lon0, lat0
+    real(ESMF_KIND_R8) :: dx, dy
+    real(ESMF_KIND_R8) :: lon0, lat0
     integer :: ni, nj
 
     ni = maxs(1) - mins(1) + 1
@@ -289,16 +303,16 @@ contains
        lon0 = lon(mins(1), mins(2))
        lat0 = lat(mins(1), mins(2))
 
-       dx = (lon(maxs(1), mins(2)) - lon0) / real(max(1, ni-1), r8)
-       dy = (lat(mins(1), maxs(2)) - lat0) / real(max(1, nj-1), r8)
+       dx = (lon(maxs(1), mins(2)) - lon0) / real(max(1, ni-1), ESMF_KIND_R8)
+       dy = (lat(mins(1), maxs(2)) - lat0) / real(max(1, nj-1), ESMF_KIND_R8)
 
-       if (abs(dx) > 1.0e-8_r8) then
+       if (abs(dx) > 1.0e-8_ESMF_KIND_R8) then
           best_i = mins(1) + nint((source%lon - lon0) / dx)
        else
           best_i = mins(1)
        endif
 
-       if (abs(dy) > 1.0e-8_r8) then
+       if (abs(dy) > 1.0e-8_ESMF_KIND_R8) then
           best_j = mins(2) + nint((source%lat - lat0) / dy)
        else
           best_j = mins(2)
