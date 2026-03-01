@@ -40,6 +40,34 @@ SIMPLE
 CPLHIST
   - Forcing data from coupler history files.
 
+--------------------------------------------
+Time Interpolation and Calendar Capabilities
+--------------------------------------------
+
+DEMS leverages the core CDEPS stream infrastructure to provide robust I/O capabilities for
+emission datasets, similar to those found in HEMCO. This includes:
+
+Time Interpolation
+  - Supports multiple interpolation algorithms (``tintalgo``) such as
+    ``linear``, ``lower``, ``upper``, ``nearest``, and ``coszen``.
+  - Handles datasets with different temporal resolutions (e.g., hourly, daily, monthly).
+
+Calendar and Leap Year Handling
+  - Supports various calendars including ``noleap`` and ``gregorian``.
+  - Automatically handles leap year transitions. For example, if the model uses a
+    Gregorian calendar but the emission data is ``noleap``, Feb 29th will repeat
+    Feb 28th data to maintain continuity.
+  - Supports data looping and alignment (``yearAlign``, ``yearFirst``, ``yearLast``)
+    to cycle through historical or climatological emissions.
+
+Time Offsets
+  - Allows shifting the time axis of a data stream by a fixed number of seconds
+    (``offset``), useful for adjusting timestamps to mid-period values.
+
+Note that while DEMS handles the I/O, time interpolation, and spatial remapping of
+emissions, additional processing such as scaling and masking is expected to occur
+either in the mediator or the receiving component.
+
 ----------------------
 Point Source Handling
 ----------------------
