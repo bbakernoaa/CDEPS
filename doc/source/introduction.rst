@@ -58,6 +58,7 @@ Directory        Function
 cime_config      CIME Case Control System
 cmake            Build (can be used with or without CIME)
 datm             Data atmosphere component
+dems             Data emissions component
 dice	         Data sea-ice component
 dglc	         Data land-ice component
 dlnd	         Data land component
