@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdlnd.a CMakeFiles/dlnd.dir/lnd_comp_nuopc.F90.o
+/usr/bin/ranlib libdlnd.a

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdglc.a CMakeFiles/dglc.dir/glc_comp_nuopc.F90.o CMakeFiles/dglc.dir/dglc_datamode_noevolve_mod.F90.o
+/usr/bin/ranlib libdglc.a

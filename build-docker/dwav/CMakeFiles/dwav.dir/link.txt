@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdwav.a CMakeFiles/dwav.dir/wav_comp_nuopc.F90.o
+/usr/bin/ranlib libdwav.a

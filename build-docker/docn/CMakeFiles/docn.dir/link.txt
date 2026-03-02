@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdocn.a CMakeFiles/docn.dir/ocn_comp_nuopc.F90.o CMakeFiles/docn.dir/docn_datamode_copyall_mod.F90.o CMakeFiles/docn.dir/docn_datamode_som_mod.F90.o CMakeFiles/docn.dir/docn_datamode_aquaplanet_mod.F90.o CMakeFiles/docn.dir/docn_datamode_iaf_mod.F90.o CMakeFiles/docn.dir/docn_datamode_cplhist_mod.F90.o CMakeFiles/docn.dir/docn_datamode_multilev_mod.F90.o CMakeFiles/docn.dir/docn_datamode_multilev_dom_mod.F90.o CMakeFiles/docn.dir/docn_import_data_mod.F90.o
+/usr/bin/ranlib libdocn.a

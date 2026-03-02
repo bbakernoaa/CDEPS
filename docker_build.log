@@ -1,0 +1,1079 @@
+DISABLE_FoX = OFF
+CMAKE_MODULE_PATH is /app/cmake, CMAKE_Fortran_COMPILER is /usr/bin/gfortran
+ESMFMKFILE:   /opt/views/view/lib/esmf.mk
+ Found ESMF:
+ESMF_VERSION_MAJOR:     8
+ESMF_F90COMPILEPATHS:   /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/esmf-8.8.0-ms7pardr7fgwhdnp6mqgtw22qgcfewny/include;/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/esmf-8.8.0-ms7pardr7fgwhdnp6mqgtw22qgcfewny/include;/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/netcdf-c-4.9.2-yi4jnmo2ui6rkvdnhrwkqcya657dhzzh/include;/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/netcdf-fortran-4.6.1-buaecar2bjiviudqfakws34zcf262exj/include;/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/include
+ESMF_F90ESMFLINKRPATHS: -Wl,-rpath,/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/esmf-8.8.0-ms7pardr7fgwhdnp6mqgtw22qgcfewny/lib
+ESMF_F90ESMFLINKLIBS:   -lesmf -lnetcdf -lnetcdff -lnetcdf -lnetcdf -lm -lpioc  -lrt -lstdc++ -ldl
+CMake Warning (dev) at /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/cmake-3.27.9-c2k2vv4ecnlm7zphu7sqkt2e6fcoaqb2/share/cmake-3.27/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+  The package name passed to `find_package_handle_standard_args` (PIO_C) does
+  not match the name of the calling package (PIO).  This can lead to problems
+  in calling code that expects `find_package` result variables (e.g.,
+  `_FOUND`) to follow a certain pattern.
+Call Stack (most recent call first):
+  cmake/LibFind.cmake:306 (find_package_handle_standard_args)
+  cmake/FindPIO.cmake:50 (find_package_component)
+  CMakeLists.txt:56 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Checking PIO version
+-- Checking PIO version - failed
+CMake Warning (dev) at /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/cmake-3.27.9-c2k2vv4ecnlm7zphu7sqkt2e6fcoaqb2/share/cmake-3.27/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+  The package name passed to `find_package_handle_standard_args`
+  (PIO_Fortran) does not match the name of the calling package (PIO).  This
+  can lead to problems in calling code that expects `find_package` result
+  variables (e.g., `_FOUND`) to follow a certain pattern.
+Call Stack (most recent call first):
+  cmake/LibFind.cmake:306 (find_package_handle_standard_args)
+  cmake/FindPIO.cmake:50 (find_package_component)
+  CMakeLists.txt:56 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+PIO_C_FOUND TRUE
+PIO_Fortran_FOUND TRUE
+PIO_Fortran_INCLUDE_DIR /opt/views/view/include
+-- genf90 library is already checked out!
+-- genf90 source dir: /app/share/genf90
+Stream srcfiles are dshr_methods_mod.F90;dshr_strdata_mod.F90;dshr_stream_mod.F90;dshr_tinterp_mod.F90
+CMake Deprecation Warning at fox/CMakeLists.txt:5 (CMAKE_MINIMUM_REQUIRED):
+  Compatibility with CMake < 3.5 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+
+
+-- determining operating system and architecture:
+-- Searching for m4 scripting language
+   -> your operating system is : Linux-6.8.0
+   -> your architecture is     : x86_64
+   -> /opt/views/view/bin/m4
+   -> end-of-line character is LF
+-- Determining end-of-line character by the host name
+-- Determining method to call flush intrinsic
+   -> flush intrinsic method is default
+-- Checking for 'associated in restricted expression' bug
+CMake Warning (dev) at /app/fox/cmake/CMakeLists.txt:1 (project):
+  cmake_minimum_required() should be called prior to this top-level project()
+  call.  Please see the cmake-commands(7) manual for usage documentation of
+  both commands.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Determining method to call abort intrinsic
+CMake Warning (dev) at /app/fox/cmake/CMakeLists.txt:1 (project):
+  cmake_minimum_required() should be called prior to this top-level project()
+  call.  Please see the cmake-commands(7) manual for usage documentation of
+  both commands.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+CMake Warning (dev) at /app/fox/cmake/CMakeLists.txt:1 (project):
+  cmake_minimum_required() should be called prior to this top-level project()
+  call.  Please see the cmake-commands(7) manual for usage documentation of
+  both commands.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+CMake Warning (dev) at /app/fox/cmake/CMakeLists.txt:1 (project):
+  cmake_minimum_required() should be called prior to this top-level project()
+  call.  Please see the cmake-commands(7) manual for usage documentation of
+  both commands.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+ abort : bare works
+DATM srcfiles are atm_comp_nuopc.F90;datm_datamode_clmncep_mod.F90;datm_datamode_cplhist_mod.F90;datm_datamode_core2_mod.F90;datm_datamode_jra_mod.F90;datm_datamode_gefs_mod.F90;datm_datamode_era5_mod.F90;datm_datamode_simple_mod.F90
+DICE srcfiles are ice_comp_nuopc.F90;dice_datamode_ssmi_mod.F90;dice_datamode_cplhist_mod.F90;dice_flux_atmice_mod.F90
+DGLC srcfiles are glc_comp_nuopc.F90;dglc_datamode_noevolve_mod.F90
+DLND srcfiles are lnd_comp_nuopc.F90
+DOCN srcfiles are ocn_comp_nuopc.F90;docn_datamode_copyall_mod.F90;docn_datamode_som_mod.F90;docn_datamode_aquaplanet_mod.F90;docn_datamode_iaf_mod.F90;docn_datamode_cplhist_mod.F90;docn_datamode_multilev_mod.F90;docn_datamode_multilev_dom_mod.F90;docn_import_data_mod.F90
+DROF srcfiles are rof_comp_nuopc.F90
+DWAV srcfiles are wav_comp_nuopc.F90
+-- Configuring done (3.8s)
+-- Generating done (0.1s)
+-- Build files have been written to: /app/build-docker
+[  0%] Built target genf90
+[  9%] Built target FoX_fsys
+[ 13%] Built target FoX_utils
+[ 32%] Built target cdeps_share
+[ 45%] Built target FoX_common
+[ 50%] Built target FoX_wxml
+[ 56%] Built target FoX_sax
+[ 65%] Built target FoX_dom
+[ 66%] Building Fortran object streams/CMakeFiles/streams.dir/dshr_strdata_mod.F90.o
+/app/streams/dshr_strdata_mod.F90:132:53:
+
+  132 |      type(shr_strdata_perstream), allocatable, target :: pstrm(:)              ! stream info
+      |                                                     1
+Error: Attribute at (1) is not allowed in a TYPE definition
+/app/streams/dshr_strdata_mod.F90:183:55:
+
+  183 |        shr_strdata_get_stream_fieldbundle = sdat%pstrm(ns)%fldbun_model
+      |                                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:185:55:
+
+  185 |        shr_strdata_get_stream_fieldbundle = sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_lb)
+      |                                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:187:55:
+
+  187 |        shr_strdata_get_stream_fieldbundle = sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_ub)
+      |                                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:241:24:
+
+  241 |     allocate(sdat%pstrm(shr_strdata_get_stream_count(sdat)))
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:309:24:
+
+  309 |     allocate(sdat%pstrm(1))
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:437:33:
+
+  437 |        stream_mesh => sdat%pstrm(ns)%stream_mesh
+      |                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:438:38:
+
+  438 |        stream_locstream => sdat%pstrm(ns)%stream_locstream
+      |                                      1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:443:21:
+
+  443 |           sdat%pstrm(ns)%use_locstream = .true.
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:461:25:
+
+  461 |           if (sdat%pstrm(ns)%use_locstream) then
+      |                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:468:10:
+
+  468 |        endif
+      |          1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:472:32:
+
+  472 |        stream_nlev = sdat%pstrm(ns)%stream_nlev
+      |                                1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:478:27:
+
+  478 |        allocate(sdat%pstrm(ns)%fldList_model(nvars))
+      |                           1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:479:69:
+
+  479 |        call shr_stream_getModelFieldList(sdat%stream(ns), sdat%pstrm(ns)%fldlist_model)
+      |                                                                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:480:27:
+
+  480 |        allocate(sdat%pstrm(ns)%fldlist_stream(nvars))
+      |                           1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:481:70:
+
+  481 |        call shr_stream_getStreamFieldList(sdat%stream(ns), sdat%pstrm(ns)%fldlist_stream)
+      |                                                                      1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:485:21:
+
+  485 |           sdat%pstrm(ns)%stream_lb = 1
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:486:21:
+
+  486 |           sdat%pstrm(ns)%stream_ub = 2
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:487:30:
+
+  487 |           allocate(sdat%pstrm(ns)%fldbun_data(2))
+      |                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:497:30:
+
+  497 |        do i=1,size(sdat%pstrm(ns)%fldbun_data)
+      |                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:498:21:
+
+  498 |           sdat%pstrm(ns)%fldbun_data(i) = ESMF_FieldBundleCreate(rc=rc) ! stream mesh
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:501:33:
+
+  501 |           do i=1,size(sdat%pstrm(ns)%fldbun_data)
+      |                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:503:31:
+
+  503 |                 if (sdat%pstrm(ns)%stream_nlev > 1) then
+      |                               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:504:56:
+
+  504 |                    lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_r8, &
+      |                                                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:509:56:
+
+  509 |                    lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_r8, &
+      |                                                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:513:33:
+
+  513 |              else if (sdat%pstrm(ns)%stream_nlev > 1) then
+      |                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:515:42:
+
+  515 |                      name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+      |                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:518:17:
+
+  518 |              else
+      |                 1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:520:42:
+
+  520 |                      name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+      |                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:522:16:
+
+  522 |              end if
+      |                1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:523:49:
+
+  523 |              call ESMF_FieldBundleAdd(sdat%pstrm(ns)%fldbun_data(i), (/lfield/), rc=rc)
+      |                                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:527:95:
+
+  527 |                    write(sdat%stream(1)%logunit,'(a,i8)') "    adding field "//trim(sdat%pstrm(ns)%fldlist_model(nfld))//&
+      |                                                                                               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:532:10:
+
+  532 |        end do
+      |          1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:535:18:
+
+  535 |        sdat%pstrm(ns)%fldbun_model = ESMF_FieldBundleCreate(rc=rc) ! time interpolation on model mesh
+      |                  1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:540:53:
+
+  540 |                 lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_r8, &
+      |                                                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:545:53:
+
+  545 |                 lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_r8, &
+      |                                                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:552:39:
+
+  552 |                   name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+      |                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:556:39:
+
+  556 |                   name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+      |                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:559:46:
+
+  559 |           call ESMF_FieldBundleAdd(sdat%pstrm(ns)%fldbun_model, (/lfield/), rc=rc)
+      |                                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:566:24:
+
+  566 |              sdat%pstrm(ns)%field_coszen = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:571:24:
+
+  571 |              sdat%pstrm(ns)%field_coszen = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:586:24:
+
+  586 |              sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_mesh, &
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:592:24:
+
+  592 |              sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_mesh, &
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:595:44:
+
+  595 |              call ESMF_FieldFill(sdat%pstrm(ns)%field_stream, dataFillScheme="const", const1=1.0_r8, rc=rc)
+      |                                            1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:600:24:
+
+  600 |              sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_locstream, &
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:606:24:
+
+  606 |              sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_locstream, &
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:609:44:
+
+  609 |              call ESMF_FieldFill(sdat%pstrm(ns)%field_stream, dataFillScheme="const", const1=1.0_r8, rc=rc)
+      |                                            1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:615:26:
+
+  615 |        index = sdat%pstrm(ns)%stream_lb
+      |                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:616:45:
+
+  616 |        call dshr_fldbun_getFieldN(sdat%pstrm(ns)%fldbun_data(index), 1, lfield_dst, rc=rc)
+      |                                             1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:623:51:
+
+  623 |              call ESMF_FieldRegridStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:633:51:
+
+  633 |              call ESMF_FieldRedistStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:638:51:
+
+  638 |              call ESMF_FieldReGridStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:646:51:
+
+  646 |              call ESMF_FieldReGridStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:655:51:
+
+  655 |              call ESMF_FieldReGridStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:664:51:
+
+  664 |              call ESMF_FieldReGridStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:670:51:
+
+  670 |              call ESMF_FieldRedistStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:680:7:
+
+  680 |     end do ! end of loop over streams
+      |       1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:684:22:
+
+  684 |        if (sdat%pstrm(ns)%use_locstream) cycle
+      |                      1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:685:33:
+
+  685 |        stream_mesh => sdat%pstrm(ns)%stream_mesh
+      |                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:686:32:
+
+  686 |        stream_nlev = sdat%pstrm(ns)%stream_nlev
+      |                                1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:708:21:
+
+  708 |           sdat%pstrm(ns)%field_stream_vector = ESMF_FieldCreate(stream_mesh, &
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:822:15:
+
+  822 |     sdat%pstrm(ns)%stream_locstream = ESMF_LocStreamCreate(localCount=npoints_local, rc=rc)
+      |               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:825:15:
+
+  825 |     sdat%pstrm(ns)%stream_lsize = npoints_local
+      |               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:826:24:
+
+  826 |     allocate(sdat%pstrm(ns)%stream_lon(npoints_local), sdat%pstrm(ns)%stream_lat(npoints_local))
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:827:15:
+
+  827 |     sdat%pstrm(ns)%stream_lon(:) = lon(:)
+      |               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:828:15:
+
+  828 |     sdat%pstrm(ns)%stream_lat(:) = lat(:)
+      |               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:831:41:
+
+  831 |     call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="ESMF:Lon", &
+      |                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:833:41:
+
+  833 |     call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="ESMF:Lat", &
+      |                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:837:24:
+
+  837 |     allocate(sdat%pstrm(ns)%dst_index(npoints_local))
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:840:44:
+
+  840 |     field_dst = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_R8, rc=rc)
+      |                                            1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:859:21:
+
+  859 |           sdat%pstrm(ns)%dst_index(i) = nint(dataptr1d(i))
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:861:21:
+
+  861 |           sdat%pstrm(ns)%dst_index(i) = 0
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:866:41:
+
+  866 |     call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="dst_index", &
+      |                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:916:27:
+
+  916 |        allocate(sdat%pstrm(stream_index)%stream_vlevs(stream_nlev))
+      |                           1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:918:52:
+
+  918 |        rcode = pio_get_var(pioid, varid, sdat%pstrm(stream_index)%stream_vlevs)
+      |                                                    1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:927:24:
+
+  927 |              sdat%pstrm(stream_index)%stream_vlevs(:) = sdat%pstrm(stream_index)%stream_vlevs(:) / 100.
+      |                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:935:81:
+
+  935 |           write(sdat%stream(1)%logunit,*)' stream vertical levels = ',sdat%pstrm(stream_index)%stream_vlevs
+      |                                                                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:940:15:
+
+  940 |     sdat%pstrm(stream_index)%stream_nlev = stream_nlev
+      |               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:984:56:
+
+  984 |     call shr_strdata_set_stream_iodesc(sdat, sdat%pstrm(stream_index), trim(fldname), pioid, rc=rc)
+      |                                                        1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1190:90:
+
+ 1190 |              write(sdat%stream(1)%logunit,*) trim(subname),' LB ymd,tod = ',ns,sdat%pstrm(ns)%ymdLB,sdat%pstrm(ns)%todLB
+      |                                                                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1191:90:
+
+ 1191 |              write(sdat%stream(1)%logunit,*) trim(subname),' UB ymd,tod = ',ns,sdat%pstrm(ns)%ymdUB,sdat%pstrm(ns)%todUB
+      |                                                                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1202:52:
+
+ 1202 |                    call shr_cal_date2ymd(sdat%pstrm(ns)%ymdUB, datayear, datamonth, dataday)
+      |                                                    1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1220:52:
+
+ 1220 |                    call shr_cal_date2ymd(sdat%pstrm(ns)%ymdUB, datayear, datamonth, dataday)
+      |                                                    1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1235:52:
+
+ 1235 |              call shr_cal_timeSet(timeLB,sdat%pstrm(ns)%ymdLB,0,calendar,rc=rc)
+      |                                                    1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1237:52:
+
+ 1237 |              call shr_cal_timeSet(timeUB,sdat%pstrm(ns)%ymdUB,0,calendar,rc=rc)
+      |                                                    1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1244:34:
+
+ 1244 |              if (.not. sdat%pstrm(ns)%override_annual_cycle) then
+      |                                  1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1246:30:
+
+ 1246 |                    sdat%pstrm(ns)%override_annual_cycle = .true.
+      |                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1251:63:
+
+ 1251 |                    dtime = abs(real(dday,r8) + real(sdat%pstrm(ns)%todUB-sdat%pstrm(ns)%todLB,r8)/shr_const_cDay)
+      |                                                               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1253:30:
+
+ 1253 |                    sdat%pstrm(ns)%dtmin = min(sdat%pstrm(ns)%dtmin,dtime)
+      |                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1254:30:
+
+ 1254 |                    sdat%pstrm(ns)%dtmax = max(sdat%pstrm(ns)%dtmax,dtime)
+      |                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1256:35:
+
+ 1256 |                    if ((sdat%pstrm(ns)%dtmax/sdat%pstrm(ns)%dtmin) > sdat%stream(ns)%dtlimit) then
+      |                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1261:48:
+
+ 1261 |                               dtime, sdat%pstrm(ns)%dtmax, sdat%pstrm(ns)%dtmin, sdat%stream(ns)%dtlimit
+      |                                                1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1263:41:
+
+ 1263 |                               sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB, sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB
+      |                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1267:45:
+
+ 1267 |                            dtime, sdat%pstrm(ns)%dtmax, sdat%pstrm(ns)%dtmin, sdat%stream(ns)%dtlimit
+      |                                             1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1269:38:
+
+ 1269 |                            sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB, sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB
+      |                                      1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1274:16:
+
+ 1274 |              endif
+      |                1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:1275:13:
+
+ 1275 |           endif
+      |             1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:1289:39:
+
+ 1289 |              stream_index = sdat%pstrm(ns)%stream_lb
+      |                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1296:28:
+
+ 1296 |              if (sdat%pstrm(ns)%use_locstream .and. trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+      |                            1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1297:43:
+
+ 1297 |                 allocate(coszen(sdat%pstrm(ns)%stream_lsize))
+      |                                           1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1304:28:
+
+ 1304 |              if (sdat%pstrm(ns)%use_locstream .and. trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+      |                            1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1305:60:
+
+ 1305 |                 call shr_tInterp_getCosz(coszen, sdat%pstrm(ns)%stream_lon, sdat%pstrm(ns)%stream_lat, ymdmod(ns), todmod, &
+      |                                                            1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1308:17:
+
+ 1308 |              else
+      |                 1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1312:16:
+
+ 1312 |              endif
+      |                1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:1325:31:
+
+ 1325 |                 if (sdat%pstrm(ns)%use_locstream .and. trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+      |                               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1326:50:
+
+ 1326 |                    if (.not. allocated(sdat%pstrm(ns)%tavCoszen)) then
+      |                                                  1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1327:42:
+
+ 1327 |                       allocate(sdat%pstrm(ns)%tavCoszen(sdat%pstrm(ns)%stream_lsize))
+      |                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1329:58:
+
+ 1329 |                    call shr_tInterp_getAvgCosz(sdat%pstrm(ns)%tavCoszen, sdat%pstrm(ns)%stream_lon, sdat%pstrm(ns)%stream_lat,  &
+      |                                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1333:20:
+
+ 1333 |                 else
+      |                    1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1334:50:
+
+ 1334 |                    if (.not. allocated(sdat%pstrm(ns)%tavCoszen)) then
+      |                                                  1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1335:42:
+
+ 1335 |                       allocate(sdat%pstrm(ns)%tavCoszen(sdat%model_lsize))
+      |                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1336:22:
+
+ 1336 |                    end if
+      |                      1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:1337:58:
+
+ 1337 |                    call shr_tInterp_getAvgCosz(sdat%pstrm(ns)%tavCoszen, sdat%model_lon, sdat%model_lat,  &
+      |                                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1341:19:
+
+ 1341 |                 endif
+      |                   1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:1346:42:
+
+ 1346 |                            ns, sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB, sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB, &
+      |                                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1350:16:
+
+ 1350 |              endif
+      |                1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:1353:39:
+
+ 1353 |              do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
+      |                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1354:31:
+
+ 1354 |                 if (sdat%pstrm(ns)%stream_nlev > 1) then
+      |                               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1355:57:
+
+ 1355 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1358:57:
+
+ 1358 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(stream_index), &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1363:81:
+
+ 1363 |                          dataptr2d(:,i) = dataptr2d_lb(:,i)*coszen(i)/sdat%pstrm(ns)%tavCoszen(i)
+      |                                                                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1368:20:
+
+ 1368 |                 else
+      |                    1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1369:57:
+
+ 1369 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1372:57:
+
+ 1372 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(stream_index), &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1377:77:
+
+ 1377 |                          dataptr1d(i) = dataptr1d_lb(i)*coszen(i)/sdat%pstrm(ns)%tavCoszen(i)
+      |                                                                             1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1382:19:
+
+ 1382 |                 end if
+      |                   1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:1395:52:
+
+ 1395 |              call shr_tInterp_getFactors(sdat%pstrm(ns)%ymdlb, sdat%pstrm(ns)%todlb, &
+      |                                                    1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1404:39:
+
+ 1404 |              do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
+      |                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1405:31:
+
+ 1405 |                 if (sdat%pstrm(ns)%stream_nlev > 1) then
+      |                               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1406:57:
+
+ 1406 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1409:57:
+
+ 1409 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_lb), &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1412:57:
+
+ 1412 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_ub), &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1415:41:
+
+ 1415 |                    do lev = 1,sdat%pstrm(ns)%stream_nlev
+      |                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1417:22:
+
+ 1417 |                    end do
+      |                      1
+Error: Expecting END IF statement at (1)
+/app/streams/dshr_strdata_mod.F90:1419:57:
+
+ 1419 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1422:57:
+
+ 1422 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_lb), &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1425:57:
+
+ 1425 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_data(sdat%pstrm(ns)%stream_ub), &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1430:16:
+
+ 1430 |              end do
+      |                1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1433:14:
+
+ 1433 |           else
+      |              1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1440:39:
+
+ 1440 |              do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
+      |                                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1441:31:
+
+ 1441 |                 if (sdat%pstrm(ns)%stream_nlev > 1) then
+      |                               1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1442:57:
+
+ 1442 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1446:20:
+
+ 1446 |                 else
+      |                    1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1447:57:
+
+ 1447 |                    call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, &
+      |                                                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1451:19:
+
+ 1451 |                 end if
+      |                   1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1452:16:
+
+ 1452 |              end do
+      |                1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1455:13:
+
+ 1455 |           endif
+      |             1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1456:10:
+
+ 1456 |        end do  ! loop over ns (number of streams)
+      |          1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1461:7:
+
+ 1461 |     endif  ! nstreams > 0
+      |       1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1576:30:
+
+ 1576 |     stream_mesh => sdat%pstrm(ns)%stream_mesh
+      |                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1590:25:
+
+ 1590 |     oDateLB = sdat%pstrm(ns)%ymdLB
+      |                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1591:25:
+
+ 1591 |     oSecLB  = sdat%pstrm(ns)%todLB
+      |                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1592:25:
+
+ 1592 |     oDateUB = sdat%pstrm(ns)%ymdUB
+      |                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1593:25:
+
+ 1593 |     oSecUB  = sdat%pstrm(ns)%todUB
+      |                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1597:30:
+
+ 1597 |     rDateLB = real(sdat%pstrm(ns)%ymdLB,r8) + real(sdat%pstrm(ns)%todLB,r8)/shr_const_cday
+      |                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1598:30:
+
+ 1598 |     rDateUB = real(sdat%pstrm(ns)%ymdUB,r8) + real(sdat%pstrm(ns)%todUB,r8)/shr_const_cday
+      |                              1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1606:23:
+
+ 1606 |             sdat%pstrm(ns)%ymdLB,sdat%pstrm(ns)%todLB, &
+      |                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1615:23:
+
+ 1615 |             sdat%pstrm(ns)%ymdLB, dDateLB, sdat%pstrm(ns)%todLB, n_lb, filename_lb, &
+      |                       1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1620:26:
+
+ 1620 |                sdat%pstrm(ns)%ymdLB,sdat%pstrm(ns)%todLB,&
+      |                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1629:26:
+
+ 1629 |     newdata = (sdat%pstrm(ns)%ymdLB /= oDateLB .or. sdat%pstrm(ns)%todLB /= oSecLB)
+      |                          1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1631:22:
+
+ 1631 |        if (sdat%pstrm(ns)%ymdLB == oDateUB .and. sdat%pstrm(ns)%todLB == oSecUB) then
+      |                      1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1633:25:
+
+ 1633 |           i = sdat%pstrm(ns)%stream_ub
+      |                         1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1634:21:
+
+ 1634 |           sdat%pstrm(ns)%stream_ub = sdat%pstrm(ns)%stream_lb
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1635:21:
+
+ 1635 |           sdat%pstrm(ns)%stream_lb = i
+      |                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1638:53:
+
+ 1638 |           call shr_strdata_readstrm(sdat, sdat%pstrm(ns), stream, &
+      |                                                     1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:1643:7:
+
+ 1643 |     endif
+      |       1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:1647:50:
+
+ 1647 |        call shr_strdata_readstrm(sdat, sdat%pstrm(ns), stream, &
+      |                                                  1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2386:33:
+
+ 2386 |        do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
+      |                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2387:48:
+
+ 2387 |           if (trim(strm_fld) == trim(sdat%pstrm(ns)%fldlist_model(nf))) then
+      |                                                1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2388:51:
+
+ 2388 |              call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, trim(sdat%pstrm(ns)%fldlist_model(nf)), &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2396:13:
+
+ 2396 |           end if
+      |             1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:2398:22:
+
+ 2398 |        if (found) exit
+      |                      1
+Error: EXIT statement at (1) is not within a construct
+/app/streams/dshr_strdata_mod.F90:2399:7:
+
+ 2399 |     end do
+      |       1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2409:43:
+
+ 2409 |     if (ns > 0 .and. ns <= size(sdat%pstrm)) then
+      |                                           1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2410:22:
+
+ 2410 |        if (sdat%pstrm(ns)%use_locstream) then
+      |                      1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2411:33:
+
+ 2411 |           locstream = sdat%pstrm(ns)%stream_locstream
+      |                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2412:11:
+
+ 2412 |        else
+      |           1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2414:10:
+
+ 2414 |        endif
+      |          1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2415:8:
+
+ 2415 |     else
+      |        1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2417:7:
+
+ 2417 |     endif
+      |       1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2428:43:
+
+ 2428 |     if (ns > 0 .and. ns <= size(sdat%pstrm)) then
+      |                                           1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2429:22:
+
+ 2429 |        if (sdat%pstrm(ns)%use_locstream) then
+      |                      1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2430:35:
+
+ 2430 |           if (allocated(sdat%pstrm(ns)%dst_index)) then
+      |                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2431:35:
+
+ 2431 |              indices => sdat%pstrm(ns)%dst_index
+      |                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2432:13:
+
+ 2432 |           endif
+      |             1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2433:11:
+
+ 2433 |        else
+      |           1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2435:10:
+
+ 2435 |        endif
+      |          1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2436:8:
+
+ 2436 |     else
+      |        1
+Error: Unexpected ELSE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2438:7:
+
+ 2438 |     endif
+      |       1
+Error: Expecting END SUBROUTINE statement at (1)
+/app/streams/dshr_strdata_mod.F90:2465:33:
+
+ 2465 |        do nf = 1,size(sdat%pstrm(ns)%fldlist_model)
+      |                                 1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2466:48:
+
+ 2466 |           if (trim(strm_fld) == trim(sdat%pstrm(ns)%fldlist_model(nf))) then
+      |                                                1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2467:51:
+
+ 2467 |              call dshr_fldbun_getfldptr(sdat%pstrm(ns)%fldbun_model, trim(sdat%pstrm(ns)%fldlist_model(nf)), &
+      |                                                   1
+Error: 'pstrm' at (1) is not a member of the 'shr_strdata_type' structure; did you mean 'stream'?
+/app/streams/dshr_strdata_mod.F90:2475:13:
+
+ 2475 |           end if
+      |             1
+Error: Expecting END DO statement at (1)
+/app/streams/dshr_strdata_mod.F90:2477:22:
+
+ 2477 |        if (found) exit
+      |                      1
+Error: EXIT statement at (1) is not within a construct
+/app/streams/dshr_strdata_mod.F90:2478:7:
+
+ 2478 |     end do
+      |       1
+Error: Expecting END SUBROUTINE statement at (1)
+make[2]: *** [streams/CMakeFiles/streams.dir/build.make:88: streams/CMakeFiles/streams.dir/dshr_strdata_mod.F90.o] Error 1
+make[1]: *** [CMakeFiles/Makefile2:465: streams/CMakeFiles/streams.dir/all] Error 2
+make: *** [Makefile:136: all] Error 2

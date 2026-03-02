@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdice.a CMakeFiles/dice.dir/ice_comp_nuopc.F90.o CMakeFiles/dice.dir/dice_datamode_ssmi_mod.F90.o CMakeFiles/dice.dir/dice_datamode_cplhist_mod.F90.o CMakeFiles/dice.dir/dice_flux_atmice_mod.F90.o
+/usr/bin/ranlib libdice.a
