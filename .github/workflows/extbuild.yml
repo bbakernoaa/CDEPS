@@ -29,10 +29,9 @@ jobs:
       - name: Install git-fleximod
         run: |
           python3 -m pip install git-fleximod
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Update externals
         run: |
-          git-fleximod update
+          python3 -m git_fleximod update
       - id: load-env
         run: |
           sudo apt-get update
