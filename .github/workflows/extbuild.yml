@@ -13,7 +13,7 @@ jobs:
   build-cdeps:
     runs-on: ubuntu-latest
     container:
-      image: noaaepic/ubuntu22.04-intel2024.2.0-1-devel-wm
+      image: noaaepic/ubuntu22.04-intel2024.2.0-1-devel-wm:ue192-hsd-aquaplanet
     env:
       CC: mpicc
       FC: mpifort

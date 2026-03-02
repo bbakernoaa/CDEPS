@@ -21,6 +21,7 @@ module dshr_strdata_mod
   use ESMF             , only : ESMF_FieldReGridStore, ESMF_FieldRedistStore, ESMF_UNMAPPEDACTION_IGNORE
   use ESMF             , only : ESMF_TERMORDER_SRCSEQ, ESMF_FieldRegrid, ESMF_FieldFill, ESMF_FieldIsCreated
   use ESMF             , only : ESMF_FieldRedist, ESMF_FieldDestroy, ESMF_RouteHandleRelease
+  use ESMF             , only : ESMF_LocStreamDestroy, ESMF_FieldBundleDestroy
   use ESMF             , only : ESMF_REGION_TOTAL, ESMF_FieldGet, ESMF_TraceRegionExit, ESMF_TraceRegionEnter
   use ESMF             , only : ESMF_LOGMSG_INFO, ESMF_LogWrite
   use shr_kind_mod     , only : r8=>shr_kind_r8, r4=>shr_kind_r4, i2=>shr_kind_I2
@@ -1417,9 +1418,10 @@ contains
 
   !===============================================================================
   subroutine shr_strdata_clean(sdat, rc)
+    use ESMF, only : ESMF_LocStreamIsCreated, ESMF_FieldBundleIsCreated
     type(shr_strdata_type), intent(inout) :: sdat
     integer, intent(out) :: rc
-    integer :: ns
+    integer :: ns, i
 
     rc = ESMF_SUCCESS
     if (allocated(sdat%pstrm)) then
@@ -1430,9 +1432,24 @@ contains
           if (ESMF_FieldIsCreated(sdat%pstrm(ns)%field_stream)) then
              call ESMF_FieldDestroy(sdat%pstrm(ns)%field_stream, rc=rc)
           end if
-          ! Add more destructions as needed for LocStream and RouteHandle
-          ! For simplicity in this example, only basic mesh/field destruction is shown.
-          ! In a full implementation, all ESMF objects and pointers would be cleaned up.
+          if (ESMF_LocStreamIsCreated(sdat%pstrm(ns)%stream_locstream, rc=rc)) then
+             call ESMF_LocStreamDestroy(sdat%pstrm(ns)%stream_locstream, rc=rc)
+          end if
+          call ESMF_RouteHandleRelease(sdat%pstrm(ns)%routehandle, rc=rc)
+          if (allocated(sdat%pstrm(ns)%fldbun_data)) then
+             do i = 1, size(sdat%pstrm(ns)%fldbun_data)
+                if (ESMF_FieldBundleIsCreated(sdat%pstrm(ns)%fldbun_data(i), rc=rc)) then
+                   call ESMF_FieldBundleDestroy(sdat%pstrm(ns)%fldbun_data(i), rc=rc)
+                end if
+             end do
+             deallocate(sdat%pstrm(ns)%fldbun_data)
+          end if
+          if (ESMF_FieldBundleIsCreated(sdat%pstrm(ns)%fldbun_model, rc=rc)) then
+             call ESMF_FieldBundleDestroy(sdat%pstrm(ns)%fldbun_model, rc=rc)
+          end if
+          if (associated(sdat%pstrm(ns)%stream_lon)) deallocate(sdat%pstrm(ns)%stream_lon)
+          if (associated(sdat%pstrm(ns)%stream_lat)) deallocate(sdat%pstrm(ns)%stream_lat)
+          if (associated(sdat%pstrm(ns)%dst_index)) deallocate(sdat%pstrm(ns)%dst_index)
        end do
        deallocate(sdat%pstrm)
     end if
