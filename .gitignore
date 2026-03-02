@@ -32,8 +32,24 @@
 *.app
 
 # Externals
-fox
-share/genf90
+fox/
+share/genf90/
 
 # ignore pycache
-__pycache__
+__pycache__/
+
+# Build directories
+build*/
+Build*/
+cmake-build-*/
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+CTestTestfile.cmake
+
+# Logs
+*.log
