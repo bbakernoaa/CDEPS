@@ -663,7 +663,7 @@ contains
           else if (trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_collapse) then
              call ESMF_FieldReGridStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
                   routehandle=sdat%pstrm(ns)%routehandle, &
-                  regridmethod=ESMF_REGRIDMETHOD_NEAREST_DTOS, &
+                  regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD, &
                   srcTermProcessing=srcTermProcessing_Value, &
                   unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
           else if (trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
@@ -805,9 +805,17 @@ contains
 
     ! Read subset of lon/lat
     rcode = pio_inq_varid(pioid, 'node_lon', varid_lon)
-    rcode = pio_get_var(pioid, varid_lon, start=(/i_start/), count=(/npoints_local/), ival=lon)
+    if (rcode /= PIO_NOERR) then
+       call shr_log_error(trim(subname)//' ERROR: UGRID variable node_lon not found in '//trim(filename), rc=rc)
+       return
+    endif
+    rcode = pio_get_var(pioid, varid_lon, start=(/i_start/), count=(/npoints_local/), dval=lon)
     rcode = pio_inq_varid(pioid, 'node_lat', varid_lat)
-    rcode = pio_get_var(pioid, varid_lat, start=(/i_start/), count=(/npoints_local/), ival=lat)
+    if (rcode /= PIO_NOERR) then
+       call shr_log_error(trim(subname)//' ERROR: UGRID variable node_lat not found in '//trim(filename), rc=rc)
+       return
+    endif
+    rcode = pio_get_var(pioid, varid_lat, start=(/i_start/), count=(/npoints_local/), dval=lat)
     call pio_closefile(pioid)
 
     ! Create LocStream
@@ -825,44 +833,42 @@ contains
     call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="ESMF:Lat", &
          keyData=sdat%pstrm(ns)%stream_lat, rc=rc)
 
-    ! If nointp or collapse, compute and store destination model mesh index
-    if (sdat%pstrm(ns)%use_locstream) then
-       allocate(sdat%pstrm(ns)%dst_index(npoints_local))
-       ! Create dummy fields for RegridStore to find indices
-       field_src = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_R8, rc=rc)
-       field_dst = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+    ! compute and store destination model mesh index
+    allocate(sdat%pstrm(ns)%dst_index(npoints_local))
+    ! Create dummy fields for RegridStore to find indices
+    field_src = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+    field_dst = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_R8, rc=rc)
 
-       ! Fill field_dst with global indices
-       call ESMF_FieldGet(field_dst, farrayPtr=dataptr1d, rc=rc)
-       do i=1, size(dataptr1d)
-          dataptr1d(i) = real(sdat%model_gindex(i), r8)
-       enddo
+    ! Fill field_src with global indices
+    call ESMF_FieldGet(field_src, farrayPtr=dataptr1d, rc=rc)
+    do i=1, size(dataptr1d)
+       dataptr1d(i) = real(sdat%model_gindex(i), r8)
+    enddo
 
-       ! Use Nearest DTOS from model mesh to locstream to find which cell each point is in
-       call ESMF_FieldRegridStore(field_dst, field_src, &
-            routehandle=routehandle, &
-            regridmethod=ESMF_REGRIDMETHOD_NEAREST_DTOS, &
-            unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+    ! Use Nearest STOD from model mesh to locstream to find which cell each point is in
+    call ESMF_FieldRegridStore(field_src, field_dst, &
+         routehandle=routehandle, &
+         regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD, &
+         unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
 
-       call ESMF_FieldRegrid(field_dst, field_src, routehandle=routehandle, rc=rc)
+    call ESMF_FieldRegrid(field_src, field_dst, routehandle=routehandle, rc=rc)
 
-       call ESMF_FieldGet(field_src, farrayPtr=dataptr1d, rc=rc)
-       do i=1, npoints_local
-          if (dataptr1d(i) > 0.0_r8) then
-             sdat%pstrm(ns)%dst_index(i) = nint(dataptr1d(i))
-          else
-             sdat%pstrm(ns)%dst_index(i) = 0
-          endif
-       enddo
+    call ESMF_FieldGet(field_dst, farrayPtr=dataptr1d, rc=rc)
+    do i=1, npoints_local
+       if (dataptr1d(i) > 0.0_r8) then
+          sdat%pstrm(ns)%dst_index(i) = nint(dataptr1d(i))
+       else
+          sdat%pstrm(ns)%dst_index(i) = 0
+       endif
+    enddo
 
-       ! Add dst_index key to LocStream
-       call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="dst_index", &
-            keyData=sdat%pstrm(ns)%dst_index, rc=rc)
+    ! Add dst_index key to LocStream
+    call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="dst_index", &
+         keyData=sdat%pstrm(ns)%dst_index, rc=rc)
 
-       call ESMF_RouteHandleDestroy(routehandle, rc=rc)
-       call ESMF_FieldDestroy(field_src, rc=rc)
-       call ESMF_FieldDestroy(field_dst, rc=rc)
-    endif
+    call ESMF_RouteHandleDestroy(routehandle, rc=rc)
+    call ESMF_FieldDestroy(field_src, rc=rc)
+    call ESMF_FieldDestroy(field_dst, rc=rc)
 
     deallocate(lon, lat)
 
@@ -1878,7 +1884,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_real2d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,1,nt/),count=(/1,1,1,1/), ival=data_real2d)
+                rcode = pio_get_var(pioid, varid,start=(/1,1,1,nt/),count=(/1,1,1,1/), rval=data_real2d)
              end if
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
@@ -1913,7 +1919,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_real1d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,nt/),count=(/1,1,1/), ival=data_real1d)
+                rcode = pio_get_var(pioid, varid,start=(/1,1,nt/),count=(/1,1,1/), rval=data_real1d)
              endif
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
@@ -1949,7 +1955,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_dbl2d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,1,nt/), count=(/1,1,1,1/), ival=data_dbl2d)
+                rcode = pio_get_var(pioid, varid,start=(/1,1,1,nt/), count=(/1,1,1,1/), dval=data_dbl2d)
              end if
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
@@ -1983,7 +1989,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_dbl1d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,nt/), count=(/1,1,1/), ival=data_dbl1d)
+                rcode = pio_get_var(pioid, varid,start=(/1,1,nt/), count=(/1,1,1/), dval=data_dbl1d)
              endif
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode

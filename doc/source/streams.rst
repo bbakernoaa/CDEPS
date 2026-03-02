@@ -203,6 +203,14 @@ Definitions of each keys used in stream definition file
   destination area normalization the weights are also divided by the fraction that the 
   destination cell overlaps with the entire source grid.
 
+  *collapse* = Nearest neighbor interpolation where source points are mapped and
+  summed into the destination grid cells. This is typically used for point source
+  emissions data.
+
+  *nointp*   = No spatial interpolation is performed. The data remains on the
+  source LocStream, but the destination model mesh index for each point is
+  computed and available.
+
 .. note::
   CIME-CCS default is *bilinear*
 
@@ -448,7 +456,8 @@ of two calls: one to initialize the stream data type
        model_clock, model_mesh, stream_meshfile, stream_lev_dimname, stream_mapalgo, &
        stream_filenames, stream_fldlistFile, stream_fldListModel, &
        stream_yearFirst, stream_yearLast, stream_yearAlign, &
-       stream_offset, stream_taxmode, stream_dtlimit, stream_tintalgo, stream_name, rc)
+       stream_offset, stream_taxmode, stream_dtlimit, stream_tintalgo, &
+       stream_src_mask, stream_dst_mask, stream_name, rc)
 
     ! input/output variables
     type(shr_strdata_type) , intent(inout) :: sdat                   ! stream data type
@@ -470,6 +479,8 @@ of two calls: one to initialize the stream data type
     character(*)           , intent(in)    :: stream_taxMode         ! time axis mode
     real(r8)               , intent(in)    :: stream_dtlimit         ! ratio of max/min stream delta times
     character(*)           , intent(in)    :: stream_tintalgo        ! time interpolation algorithm
+    integer, optional      , intent(in)    :: stream_src_mask        ! source mask value
+    integer, optional      , intent(in)    :: stream_dst_mask        ! destination mask value
     character(*), optional , intent(in)    :: stream_name            ! name of stream
     integer                , intent(out)   :: rc                     ! error code
 
@@ -486,6 +497,24 @@ and one to advance the stream (``shr_strdata_advance``):
     character(len=*)       ,intent(in)          :: istr    ! string used for timing output
     logical                ,intent(in), optional:: timers  ! currently not used
     integer                ,intent(out)         :: rc      ! error code
+
+Additional helper functions are available to retrieve LocStream and destination indices when using point source data:
+
+.. code-block:: Fortran
+
+    subroutine shr_strdata_get_stream_locstream(sdat, ns, locstream, rc)
+
+    type(shr_strdata_type) ,intent(in)    :: sdat      ! stream data type
+    integer                ,intent(in)    :: ns        ! stream index
+    type(ESMF_LocStream)   ,intent(out)   :: locstream ! the LocStream
+    integer                ,intent(out)   :: rc        ! error code
+
+    subroutine shr_strdata_get_stream_indices(sdat, ns, indices, rc)
+
+    type(shr_strdata_type) ,intent(in)    :: sdat    ! stream data type
+    integer                ,intent(in)    :: ns      ! stream index
+    integer                ,pointer       :: indices(:) ! pointer to destination indices
+    integer                ,intent(out)   :: rc      ! error code
 
 -------------------------
 Handling Stream Calendars
