@@ -24,8 +24,8 @@ jobs:
     steps:
       - id: checkout-CDEPS
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        # with:
+        #   submodules: recursive
       - name: Cache EXTERNALS
         id: cache-EXTERNALS
         uses: actions/cache@v4
