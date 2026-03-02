@@ -4,7 +4,7 @@ name: extbuild
 # events but only for the main branch
 on:
   push:
-    branches: [ main ]
+    branches: [ main, point-source-support-6899165467717282098 ]
   pull_request:
     branches: [ main ]
 
