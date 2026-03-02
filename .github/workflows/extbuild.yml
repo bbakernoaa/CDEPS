@@ -23,11 +23,18 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Cache Docker image
+        uses: ScribeMD/docker-cache@0.5.0
+        with:
+          key: docker-noaaepic-ubuntu22.04-intel2024.2.0-1-devel-wm-ue192-hsd-aquaplanet
+
       - name: Explore Environment
         shell: bash
         run: |
           echo "Checking PATH..."
           echo $PATH
+          echo "Checking for Intel environment..."
+          [ -f /opt/intel/oneapi/setvars.sh ] && source /opt/intel/oneapi/setvars.sh || echo "setvars.sh not found"
           echo "Checking Environment Variables..."
           env | sort
           echo "Checking for MPI..."
@@ -46,12 +53,15 @@ jobs:
           find /usr/local -name "esmf.mk" || echo "esmf.mk not found in /usr/local"
 
       - name: Build CDEPS
-        uses: ./.github/actions/buildcdeps
-        with:
-          esmfmkfile: /usr/local/lib/esmf.mk
-          pio_path: /usr/local
-          src_root: ${GITHUB_WORKSPACE}
-          cmake_flags: " -Wno-dev -DCMAKE_BUILD_TYPE=DEBUG -DWERROR=ON  -DCMAKE_Fortran_FLAGS=\"-g -O2 \""
+        shell: bash
+        run: |
+          [ -f /opt/intel/oneapi/setvars.sh ] && source /opt/intel/oneapi/setvars.sh
+          mkdir build-cdeps
+          cd build-cdeps
+          export ESMFMKFILE=/usr/local/lib/esmf.mk
+          export PIO=/usr/local
+          cmake -Wno-dev -DCMAKE_BUILD_TYPE=DEBUG -DWERROR=ON -DCMAKE_Fortran_FLAGS="-g -O2" ${GITHUB_WORKSPACE}
+          make -j$(nproc) VERBOSE=1
 
       - name: Test CDEPS
         run: |
