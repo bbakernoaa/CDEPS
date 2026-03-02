@@ -51,6 +51,8 @@ jobs:
           find /usr/lib -name "libpio*" || echo "PIO lib not found in /usr/lib"
           find /opt -name "libpio*" || echo "PIO lib not found in /opt"
           find /usr/local -name "esmf.mk" || echo "esmf.mk not found in /usr/local"
+          echo "ESMFMKFILE is ${ESMFMKFILE}"
+          echo "PIO is ${PIO}"
 
       - name: Build CDEPS
         shell: bash
@@ -58,8 +60,8 @@ jobs:
           [ -f /opt/intel/oneapi/setvars.sh ] && source /opt/intel/oneapi/setvars.sh
           mkdir build-cdeps
           cd build-cdeps
-          export ESMFMKFILE=/usr/local/lib/esmf.mk
-          export PIO=/usr/local
+          [ -z "$ESMFMKFILE" ] && export ESMFMKFILE=/usr/local/lib/esmf.mk
+          [ -z "$PIO" ] && export PIO=/usr/local
           cmake -Wno-dev -DCMAKE_BUILD_TYPE=DEBUG -DWERROR=ON -DCMAKE_Fortran_FLAGS="-g -O2" ${GITHUB_WORKSPACE}
           make -j$(nproc) VERBOSE=1
 
