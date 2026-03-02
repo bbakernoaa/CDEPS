@@ -28,7 +28,8 @@ jobs:
           submodules: recursive
       - name: Install git-fleximod
         run: |
-          pip install git-fleximod
+          python3 -m pip install git-fleximod
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Update externals
         run: |
           git-fleximod update
