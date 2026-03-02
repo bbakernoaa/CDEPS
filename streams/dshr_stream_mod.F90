@@ -81,6 +81,8 @@ module dshr_stream_mod
   character(CS),parameter,public :: shr_stream_mapalgo_nn       = 'nn'
   character(CS),parameter,public :: shr_stream_mapalgo_consf    = 'consf'
   character(CS),parameter,public :: shr_stream_mapalgo_consd    = 'consd'
+  character(CS),parameter,public :: shr_stream_mapalgo_collapse = 'collapse'
+  character(CS),parameter,public :: shr_stream_mapalgo_nointp   = 'nointp'
   character(CS),parameter,public :: shr_stream_mapalgo_none     = 'none'
 
   ! a useful derived type to use inside shr_streamType ---
@@ -242,8 +244,10 @@ contains
                  streamdat(i)%mapalgo /= shr_stream_mapalgo_nn       .and. &
                  streamdat(i)%mapalgo /= shr_stream_mapalgo_consf    .and. &
                  streamdat(i)%mapalgo /= shr_stream_mapalgo_consd    .and. &
+                 streamdat(i)%mapalgo /= shr_stream_mapalgo_collapse .and. &
+                 streamdat(i)%mapalgo /= shr_stream_mapalgo_nointp   .and. &
                  streamdat(i)%mapalgo /= shr_stream_mapalgo_none) then
-                call shr_log_error("mapaglo must have a value of either bilinear, redist, nn, consf or consd", rc=rc)
+                call shr_log_error("mapaglo must have a value of either bilinear, redist, nn, consf, consd, collapse or nointp", rc=rc)
                 return
              end if
           endif
