@@ -13,56 +13,20 @@ jobs:
   build-cdeps:
     runs-on: ubuntu-latest
     container:
-      image: noaaepic/ubuntu22.04-intel2024.2.0-1-devel-wm:ue192-hsd-aquaplanet
-    env:
-      ESMF_VERSION: v8.6.1
-      ParallelIO_VERSION: pio2_6_2
+      image: jcsda/docker-gnu-openmpi-dev:1.9
     steps:
       - id: checkout-CDEPS
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Cache Docker image
-        uses: ScribeMD/docker-cache@0.5.0
-        with:
-          key: docker-noaaepic-ubuntu22.04-intel2024.2.0-1-devel-wm-ue192-hsd-aquaplanet
-
-      - name: Explore Environment
-        shell: bash
-        run: |
-          echo "Checking PATH..."
-          echo $PATH
-          echo "Checking for Intel environment..."
-          [ -f /opt/intel/oneapi/setvars.sh ] && source /opt/intel/oneapi/setvars.sh || echo "setvars.sh not found"
-          echo "Checking Environment Variables..."
-          env | sort
-          echo "Checking for MPI..."
-          which mpirun || echo "mpirun not found"
-          which mpicc || echo "mpicc not found"
-          which mpifort || echo "mpifort not found"
-          echo "Checking for Intel compilers..."
-          which icc || echo "icc not found"
-          which ifort || echo "ifort not found"
-          which icx || echo "icx not found"
-          which ifx || echo "ifx not found"
-          echo "Checking for libraries..."
-          find /usr/local -name "libpio*" || echo "PIO lib not found in /usr/local"
-          find /usr/lib -name "libpio*" || echo "PIO lib not found in /usr/lib"
-          find /opt -name "libpio*" || echo "PIO lib not found in /opt"
-          find /usr/local -name "esmf.mk" || echo "esmf.mk not found in /usr/local"
-          echo "ESMFMKFILE is ${ESMFMKFILE}"
-          echo "PIO is ${PIO}"
-
       - name: Build CDEPS
         shell: bash
         run: |
-          [ -f /opt/intel/oneapi/setvars.sh ] && source /opt/intel/oneapi/setvars.sh
+          source /opt/spack-environment/activate.sh
           mkdir build-cdeps
           cd build-cdeps
-          [ -z "$ESMFMKFILE" ] && export ESMFMKFILE=/usr/local/lib/esmf.mk
-          [ -z "$PIO" ] && export PIO=/usr/local
-          cmake -Wno-dev -DCMAKE_BUILD_TYPE=DEBUG -DWERROR=ON -DCMAKE_Fortran_FLAGS="-g -O2" ${GITHUB_WORKSPACE}
+          cmake -Wno-dev -DCMAKE_BUILD_TYPE=DEBUG -DWERROR=ON ${GITHUB_WORKSPACE}
           make -j$(nproc) VERBOSE=1
 
       - name: Test CDEPS
