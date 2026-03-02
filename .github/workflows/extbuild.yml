@@ -28,6 +28,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Checkout ParallelIO
+        uses: actions/checkout@v4
+        with:
+          repository: NCAR/ParallelIO
+          ref: pio2_6_2
+          path: parallelio-src
       - name: Cache PARALLELIO
         id: cache-PARALLELIO
         uses: actions/cache@v4
