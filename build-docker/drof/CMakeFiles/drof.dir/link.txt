@@ -1,2 +1,0 @@
-/usr/bin/ar qc libdrof.a CMakeFiles/drof.dir/rof_comp_nuopc.F90.o
-/usr/bin/ranlib libdrof.a
