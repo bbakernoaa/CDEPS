@@ -4,7 +4,7 @@ module dshr_strdata_mod
   ! Obtain the model domain and the stream domain for each stream
 
   use ESMF             , only : ESMF_Mesh, ESMF_RouteHandle, ESMF_Field, ESMF_FieldBundle
-  use ESMF             , only : ESMF_LocStream, ESMF_LocStreamCreate, ESMF_LocStreamAddKey
+  use ESMF             , only : ESMF_LocStream, ESMF_LocStreamCreate, ESMF_LocStreamAddKey, ESMF_FAILURE
   use ESMF             , only : ESMF_LocStreamGet, ESMF_LocStreamIsCreated
   use ESMF             , only : ESMF_Clock, ESMF_VM, ESMF_VMGet, ESMF_VMGetCurrent
   use ESMF             , only : ESMF_DistGrid, ESMF_SUCCESS, ESMF_MeshGet, ESMF_DistGridGet
@@ -100,10 +100,10 @@ module dshr_strdata_mod
      type(ESMF_Mesh)                     :: stream_mesh                     ! stream mesh created from stream mesh file
      type(ESMF_LocStream)                :: stream_locstream                ! stream locstream for point sources
      logical                             :: use_locstream = .false.         ! true=>use locstream for point sources
-     real(r8), allocatable               :: stream_lon(:)                   ! stream point longitudes
-     real(r8), allocatable               :: stream_lat(:)                   ! stream point latitudes
+     real(r8), allocatable, target       :: stream_lon(:)                   ! stream point longitudes
+     real(r8), allocatable, target       :: stream_lat(:)                   ! stream point latitudes
      integer                             :: stream_lsize                    ! stream local point size
-     integer, allocatable                :: dst_index(:)                    ! destination index for each point
+     integer, allocatable, target        :: dst_index(:)                    ! destination index for each point
      type(io_desc_t)                     :: stream_pio_iodesc               ! stream pio descriptor
      logical                             :: stream_pio_iodesc_set =.false.  ! true=>pio iodesc has been set
      type(ESMF_RouteHandle)              :: routehandle                     ! stream n -> model mesh mapping
@@ -125,7 +125,7 @@ module dshr_strdata_mod
      real(r8)                            :: dtmax = 0.0_r8
      logical                             :: override_annual_cycle = .false.
      type(ESMF_Field)                    :: field_coszen                    ! needed for coszen time interp
-     real(r8), allocatable               :: tavCoszen(:)                    ! cosz t-interp data
+     real(r8), allocatable, target       :: tavCoszen(:)                    ! cosz t-interp data
   end type shr_strdata_perstream
 
   type shr_strdata_type
@@ -809,13 +809,13 @@ contains
        call shr_log_error(trim(subname)//' ERROR: UGRID variable node_lon not found in '//trim(filename), rc=rc)
        return
     endif
-    rcode = pio_get_var(pioid, varid_lon, start=(/i_start/), count=(/npoints_local/), dval=lon)
+    rcode = pio_get_var(pioid, varid_lon, (/i_start/), (/npoints_local/), lon)
     rcode = pio_inq_varid(pioid, 'node_lat', varid_lat)
     if (rcode /= PIO_NOERR) then
        call shr_log_error(trim(subname)//' ERROR: UGRID variable node_lat not found in '//trim(filename), rc=rc)
        return
     endif
-    rcode = pio_get_var(pioid, varid_lat, start=(/i_start/), count=(/npoints_local/), dval=lat)
+    rcode = pio_get_var(pioid, varid_lat, (/i_start/), (/npoints_local/), lat)
     call pio_closefile(pioid)
 
     ! Create LocStream
@@ -1884,7 +1884,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_real2d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,1,nt/),count=(/1,1,1,1/), rval=data_real2d)
+                rcode = pio_get_var(pioid, varid, (/1,1,1,nt/), (/1,1,1,1/), data_real2d)
              end if
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
@@ -1919,7 +1919,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_real1d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,nt/),count=(/1,1,1/), rval=data_real1d)
+                rcode = pio_get_var(pioid, varid, (/1,1,nt/), (/1,1,1/), data_real1d)
              endif
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
@@ -1955,7 +1955,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_dbl2d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,1,nt/), count=(/1,1,1,1/), dval=data_dbl2d)
+                rcode = pio_get_var(pioid, varid, (/1,1,1,nt/), (/1,1,1,1/), data_dbl2d)
              end if
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
@@ -1989,7 +1989,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_dbl1d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,nt/), count=(/1,1,1/), dval=data_dbl1d)
+                rcode = pio_get_var(pioid, varid, (/1,1,nt/), (/1,1,1/), data_dbl1d)
              endif
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
@@ -2025,7 +2025,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_short2d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,1,nt/), count=(/1,1,1,1/), ival=data_short2d)
+                rcode = pio_get_var(pioid, varid, (/1,1,1,nt/), (/1,1,1,1/), data_short2d)
              end if
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
@@ -2053,7 +2053,7 @@ contains
              if (per_stream%stream_pio_iodesc_set) then
                 call pio_read_darray(pioid, varid, per_stream%stream_pio_iodesc, data_short1d, rcode)
              else
-                rcode = pio_get_var(pioid, varid,start=(/1,1,nt/),count=(/1,1,1/), ival=data_short1d)
+                rcode = pio_get_var(pioid, varid, (/1,1,nt/), (/1,1,1/), data_short1d)
              endif
              if ( rcode /= PIO_NOERR ) then
                 rc = rcode
