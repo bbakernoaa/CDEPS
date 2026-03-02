@@ -2,6 +2,7 @@ module dshr_fldlist_mod
 
   use NUOPC            , only : NUOPC_IsConnected, NUOPC_Realize
   use ESMF             , only : ESMF_State, ESMF_Mesh, ESMF_Field, ESMF_Grid, ESMF_GridCreate
+  use ESMF             , only : ESMF_LocStream, ESMF_LocStreamIsCreated
   use ESMF             , only : ESMF_SUCCESS, ESMF_LogWrite, ESMF_LOGMSG_INFO
   use ESMF             , only : ESMF_LOGERR_PASSTHRU, ESMF_LogFoundError
   use ESMF             , only : ESMF_MESHLOC_ELEMENT, ESMF_TYPEKIND_R8, ESMF_StateRemove
@@ -14,6 +15,11 @@ module dshr_fldlist_mod
 
   public :: dshr_fldlist_add
   public :: dshr_fldlist_realize
+
+  interface dshr_fldlist_realize
+     module procedure dshr_fldlist_realize_mesh
+     module procedure dshr_fldlist_realize_locstream
+  end interface dshr_fldlist_realize
 
   type, public :: fldlist_type
     character(len=CS) :: stdname
@@ -53,7 +59,79 @@ contains
 
   !===============================================================================
 
-  subroutine dshr_fldlist_realize(state, fldLists, flds_scalar_name, flds_scalar_num, mesh, tag, export_all, rc)
+  subroutine dshr_fldlist_realize_locstream(state, fldLists, flds_scalar_name, flds_scalar_num, locstream, tag, export_all, rc)
+
+    ! input/output variables
+    type(ESMF_State)    , intent(inout) :: state
+    type(fldlist_type)  , pointer       :: fldLists
+    character(len=*)    , intent(in)    :: flds_scalar_name
+    integer             , intent(in)    :: flds_scalar_num
+    type(ESMF_LocStream), intent(in)    :: locstream
+    character(len=*)    , intent(in)    :: tag
+    logical             , intent(in)    :: export_all
+    integer             , intent(inout) :: rc
+
+    ! local variables
+    type(fldlist_type), pointer :: fldList
+    type(ESMF_Field)            :: field
+    character(len=CS)           :: stdname
+    character(len=*),parameter  :: subname='(dshr_fldList_realize_ls)'
+    ! ----------------------------------------------
+
+    rc = ESMF_SUCCESS
+
+    fldList => fldLists ! note that fldlists is the head of the linked list
+    do while (associated(fldList))
+       stdname = fldList%stdname
+
+       if (NUOPC_IsConnected(state, fieldName=stdname) .or. export_all) then
+          ! Check field name since linked list might have empty string
+          if (trim(stdname) == '') then
+             fldList => fldList%next
+             cycle
+          end if
+
+          if (stdname == trim(flds_scalar_name)) then
+             call ESMF_LogWrite(trim(subname)//trim(tag)//" Field = "//trim(stdname)//" is connected on root pe", &
+                  ESMF_LOGMSG_INFO)
+             ! Create the scalar field
+             call SetScalarField(field, flds_scalar_name, flds_scalar_num, rc=rc)
+             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=u_FILE_u)) return
+          else
+             ! Create the field
+             if (fldList%ungridded_lbound > 0 .and. fldList%ungridded_ubound > 0) then
+                field = ESMF_FieldCreate(locstream, ESMF_TYPEKIND_R8, name=stdname, &
+                     ungriddedLbound=(/fldList%ungridded_lbound/), &
+                     ungriddedUbound=(/fldList%ungridded_ubound/), gridToFieldMap=(/2/), rc=rc)
+                if (ChkErr(rc,__LINE__,u_FILE_u)) return
+             else
+                field = ESMF_FieldCreate(locstream, ESMF_TYPEKIND_R8, name=stdname, rc=rc)
+                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=u_FILE_u)) return
+             end if
+             call ESMF_LogWrite(trim(subname)//trim(tag)//" Field = "//trim(stdname)//" is connected using LocStream", &
+                  ESMF_LOGMSG_INFO)
+          endif
+
+          ! NOW call NUOPC_Realize
+          call NUOPC_Realize(state, field=field, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=u_FILE_u)) return
+       else
+          if (stdname /= trim(flds_scalar_name)) then
+             call ESMF_LogWrite(subname // trim(tag) // " Field = "// trim(stdname) // " is not connected.", &
+                  ESMF_LOGMSG_INFO)
+             call ESMF_StateRemove(state, (/stdname/), rc=rc)
+             if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=u_FILE_u)) return
+          end if
+       end if
+       fldList => fldList%next
+
+    end do
+
+  end subroutine dshr_fldlist_realize_locstream
+
+  !===============================================================================
+
+  subroutine dshr_fldlist_realize_mesh(state, fldLists, flds_scalar_name, flds_scalar_num, mesh, tag, export_all, rc)
 
     ! input/output variables
     type(ESMF_State)    , intent(inout) :: state

@@ -4,6 +4,8 @@ module dshr_strdata_mod
   ! Obtain the model domain and the stream domain for each stream
 
   use ESMF             , only : ESMF_Mesh, ESMF_RouteHandle, ESMF_Field, ESMF_FieldBundle
+  use ESMF             , only : ESMF_LocStream, ESMF_LocStreamCreate, ESMF_LocStreamAddKey
+  use ESMF             , only : ESMF_LocStreamGet, ESMF_LocStreamIsCreated
   use ESMF             , only : ESMF_Clock, ESMF_VM, ESMF_VMGet, ESMF_VMGetCurrent
   use ESMF             , only : ESMF_DistGrid, ESMF_SUCCESS, ESMF_MeshGet, ESMF_DistGridGet
   use ESMF             , only : ESMF_VMBroadCast, ESMF_MeshIsCreated, ESMF_MeshCreate
@@ -14,9 +16,12 @@ module dshr_strdata_mod
   use ESMF             , only : ESMF_FieldBundleCreate, ESMF_MESHLOC_ELEMENT, ESMF_FieldBundleAdd
   use ESMF             , only : ESMF_POLEMETHOD_ALLAVG, ESMF_EXTRAPMETHOD_NEAREST_STOD
   use ESMF             , only : ESMF_REGRIDMETHOD_BILINEAR, ESMF_REGRIDMETHOD_NEAREST_STOD
+  use ESMF             , only : ESMF_REGRIDMETHOD_NEAREST_DTOS
   use ESMF             , only : ESMF_REGRIDMETHOD_CONSERVE, ESMF_NORMTYPE_FRACAREA, ESMF_NORMTYPE_DSTAREA
+  use ESMF             , only : ESMF_TYPEKIND_I4, ESMF_RouteHandleDestroy, ESMF_FieldDestroy
   use ESMF             , only : ESMF_ClockGet, operator(-), operator(==), ESMF_CALKIND_NOLEAP
-  use ESMF             , only : ESMF_FieldReGridStore, ESMF_FieldRedistStore, ESMF_UNMAPPEDACTION_IGNORE
+  use ESMF             , only : ESMF_FieldReGridStore, ESMF_FieldRedistStore, ESMF_FieldRedist
+  use ESMF             , only : ESMF_UNMAPPEDACTION_IGNORE
   use ESMF             , only : ESMF_TERMORDER_SRCSEQ, ESMF_FieldRegrid, ESMF_FieldFill, ESMF_FieldIsCreated
   use ESMF             , only : ESMF_REGION_TOTAL, ESMF_FieldGet, ESMF_TraceRegionExit, ESMF_TraceRegionEnter
   use ESMF             , only : ESMF_LOGMSG_INFO, ESMF_LogWrite
@@ -35,6 +40,7 @@ module dshr_strdata_mod
 
   use dshr_stream_mod  , only : shr_stream_streamtype, shr_stream_getModelFieldList, shr_stream_getStreamFieldList
   use dshr_stream_mod  , only : shr_stream_taxis_cycle, shr_stream_taxis_extend, shr_stream_findBounds
+  use dshr_stream_mod  , only : shr_stream_mapalgo_collapse, shr_stream_mapalgo_nointp
   use dshr_stream_mod  , only : shr_stream_getCurrFile, shr_stream_setCurrFile, shr_stream_getMeshFilename
   use dshr_stream_mod  , only : shr_stream_init_from_inline, shr_stream_init_from_esmfconfig
 #ifndef DISABLE_FoX
@@ -67,11 +73,14 @@ module dshr_strdata_mod
   public  :: shr_strdata_get_stream_pointer ! get a pointer into a stream's fldbun_model field bundle
   public  :: shr_strdata_get_stream_count
   public  :: shr_strdata_get_stream_fieldbundle
+  public  :: shr_strdata_get_stream_locstream
+  public  :: shr_strdata_get_stream_indices
   public  :: shr_strdata_print
 
   private :: shr_strdata_init_model_domain
   private :: shr_strdata_get_stream_nlev
   private :: shr_strdata_readLBUB
+  private :: shr_strdata_init_locstream
 
   interface shr_strdata_get_stream_pointer
      module procedure shr_strdata_get_stream_pointer_1d
@@ -89,6 +98,12 @@ module dshr_strdata_mod
   type shr_strdata_perstream
      character(CL)                       :: stream_meshfile                 ! stream mesh file from stream txt file
      type(ESMF_Mesh)                     :: stream_mesh                     ! stream mesh created from stream mesh file
+     type(ESMF_LocStream)                :: stream_locstream                ! stream locstream for point sources
+     logical                             :: use_locstream = .false.         ! true=>use locstream for point sources
+     real(r8), allocatable               :: stream_lon(:)                   ! stream point longitudes
+     real(r8), allocatable               :: stream_lat(:)                   ! stream point latitudes
+     integer                             :: stream_lsize                    ! stream local point size
+     integer, allocatable                :: dst_index(:)                    ! destination index for each point
      type(io_desc_t)                     :: stream_pio_iodesc               ! stream pio descriptor
      logical                             :: stream_pio_iodesc_set =.false.  ! true=>pio iodesc has been set
      type(ESMF_RouteHandle)              :: routehandle                     ! stream n -> model mesh mapping
@@ -110,6 +125,7 @@ module dshr_strdata_mod
      real(r8)                            :: dtmax = 0.0_r8
      logical                             :: override_annual_cycle = .false.
      type(ESMF_Field)                    :: field_coszen                    ! needed for coszen time interp
+     real(r8), allocatable               :: tavCoszen(:)                    ! cosz t-interp data
   end type shr_strdata_perstream
 
   type shr_strdata_type
@@ -136,7 +152,6 @@ module dshr_strdata_mod
      real(r8)                       :: mvelpp = SHR_ORB_UNDEF_REAL     ! cosz t-interp info
      real(r8)                       :: lambm0 = SHR_ORB_UNDEF_REAL     ! cosz t-interp info
      real(r8)                       :: obliqr = SHR_ORB_UNDEF_REAL     ! cosz t-interp info
-     real(r8), allocatable          :: tavCoszen(:)                    ! cosz t-interp data
   end type shr_strdata_type
 
   real(r8)         ,parameter :: deg2rad = SHR_CONST_PI/180.0_r8
@@ -387,6 +402,7 @@ contains
 
     ! local variables
     type(ESMF_Mesh), pointer     :: stream_mesh
+    type(ESMF_LocStream), pointer :: stream_locstream
     type(ESMF_CalKind_Flag)      :: esmf_caltype    ! esmf calendar type
     character(CS)                :: calendar        ! calendar name
     integer                      :: ns              ! stream index
@@ -419,6 +435,13 @@ contains
 
        ! Set pointer for stream_mesh
        stream_mesh => sdat%pstrm(ns)%stream_mesh
+       stream_locstream => sdat%pstrm(ns)%stream_locstream
+
+       ! Check if this stream is a point source stream
+       if (trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_collapse .or. &
+           trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+          sdat%pstrm(ns)%use_locstream = .true.
+       endif
 
        ! Create the target stream mesh from the stream mesh file
        ! TODO: add functionality if the stream mesh needs to be created from a grid
@@ -435,8 +458,13 @@ contains
        ! later.
        !
        if(filename /= 'none') then
-          stream_mesh = ESMF_MeshCreate(trim(filename), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          if (sdat%pstrm(ns)%use_locstream) then
+             call shr_strdata_init_locstream(sdat, ns, filename, rc=rc)
+             if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          else
+             stream_mesh = ESMF_MeshCreate(trim(filename), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
+             if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          endif
        endif
 
        ! Determine the number of stream levels
@@ -471,7 +499,18 @@ contains
        enddo
        do nfld = 1, nvars
           do i=1,size(sdat%pstrm(ns)%fldbun_data)
-             if (sdat%pstrm(ns)%stream_nlev > 1) then
+             if (trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+                if (sdat%pstrm(ns)%stream_nlev > 1) then
+                   lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_r8, &
+                        name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                        ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                        rc=rc)
+                else
+                   lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_r8, &
+                        name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                        rc=rc)
+                endif
+             else if (sdat%pstrm(ns)%stream_nlev > 1) then
                 lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
                      name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
                      ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
@@ -496,7 +535,18 @@ contains
        sdat%pstrm(ns)%fldbun_model = ESMF_FieldBundleCreate(rc=rc) ! time interpolation on model mesh
        do nfld = 1, nvars
           ! create temporary fields on model mesh and add the fields to the field bundle
-          if (stream_nlev > 1) then
+          if (trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+             if (stream_nlev > 1) then
+                lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_r8, &
+                     ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                     rc=rc)
+             else
+                lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_r8, &
+                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                     rc=rc)
+             endif
+          else if (stream_nlev > 1) then
              lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
                   ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
                   name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
@@ -545,6 +595,20 @@ contains
              call ESMF_FieldFill(sdat%pstrm(ns)%field_stream, dataFillScheme="const", const1=1.0_r8, rc=rc)
              if (chkerr(rc,__LINE__,u_FILE_u)) return
           end if
+       else if(ESMF_LocStreamIsCreated(stream_locstream)) then
+          if (stream_nlev > 1) then
+             sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_locstream, &
+                  ESMF_TYPEKIND_r8, &
+                  ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                  rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+          else
+             sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_locstream, &
+                  ESMF_TYPEKIND_r8, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+             call ESMF_FieldFill(sdat%pstrm(ns)%field_stream, dataFillScheme="const", const1=1.0_r8, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+          end if
        endif
 
        ! Why not use fldbun_model rather than fldbun_data?
@@ -552,7 +616,7 @@ contains
        call dshr_fldbun_getFieldN(sdat%pstrm(ns)%fldbun_data(index), 1, lfield_dst, rc=rc)
        if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-       if (.not.  ESMF_MeshIsCreated(stream_mesh)) then
+       if (.not. ESMF_MeshIsCreated(stream_mesh) .and. .not. ESMF_LocStreamIsCreated(stream_locstream)) then
           sdat%stream(ns)%mapalgo = 'none'
        else
           if (trim(sdat%stream(ns)%mapalgo) == "bilinear") then
@@ -596,6 +660,15 @@ contains
                   srcMaskValues=(/sdat%stream(ns)%src_mask_val/), &
                   srcTermProcessing=srcTermProcessing_Value, ignoreDegenerate=.true., &
                   unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+          else if (trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_collapse) then
+             call ESMF_FieldReGridStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+                  routehandle=sdat%pstrm(ns)%routehandle, &
+                  regridmethod=ESMF_REGRIDMETHOD_NEAREST_DTOS, &
+                  srcTermProcessing=srcTermProcessing_Value, &
+                  unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+          else if (trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+             call ESMF_FieldRedistStore(sdat%pstrm(ns)%field_stream, lfield_dst, &
+                  routehandle=sdat%pstrm(ns)%routehandle, rc=rc)
           else if (trim(sdat%stream(ns)%mapalgo) == 'none') then
              ! single point stream data, no action required.
           else
@@ -608,6 +681,7 @@ contains
 
     ! Check for vector pairs in the stream - BOTH ucomp and vcomp MUST BE IN THE SAME STREAM
     do ns = 1,shr_strdata_get_stream_count(sdat)
+       if (sdat%pstrm(ns)%use_locstream) cycle
        stream_mesh => sdat%pstrm(ns)%stream_mesh
        stream_nlev = sdat%pstrm(ns)%stream_nlev
        stream_vector_names = trim(sdat%stream(ns)%stream_vectors)
@@ -665,6 +739,134 @@ contains
        write(sdat%stream(1)%logunit,*) ' successfully initialized sdat'
     endif
   end subroutine shr_strdata_init
+
+  !===============================================================================
+  subroutine shr_strdata_init_locstream(sdat, ns, filename, rc)
+
+    ! Initialize LocStream from UGRID point source data
+
+    ! input/output variables
+    type(shr_strdata_type) , intent(inout) :: sdat
+    integer                , intent(in)    :: ns
+    character(len=*)       , intent(in)    :: filename
+    integer                , intent(out)   :: rc
+
+    ! local variables
+    type(ESMF_VM)           :: vm
+    type(file_desc_t)       :: pioid
+    integer                 :: rcode
+    integer                 :: dimid, varid_lon, varid_lat
+    integer                 :: npoints, npoints_local, i_start, n_rem
+    integer                 :: petCount, localPet
+    real(r8), allocatable   :: lon(:), lat(:)
+    real(r8), pointer       :: dataptr1d(:)
+    type(ESMF_Field)        :: field_src, field_dst
+    type(ESMF_RouteHandle)  :: routehandle
+    integer                 :: i
+    character(CS)           :: dimname_point
+    character(*), parameter :: subname = '(shr_strdata_init_locstream) '
+    ! ----------------------------------------------
+
+    rc = ESMF_SUCCESS
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    call ESMF_VMGet(vm, petCount=petCount, localPet=localPet, rc=rc)
+    nullify(dataptr1d)
+
+    ! Open file to read coordinates
+    rcode = pio_openfile(sdat%pio_subsystem, pioid, sdat%io_type, trim(filename), pio_nowrite)
+
+    ! Check for UGRID point dimension (nNodes or node)
+    rcode = pio_inq_dimid(pioid, 'nNodes', dimid)
+    if (rcode == PIO_NOERR) then
+       dimname_point = 'nNodes'
+    else
+       rcode = pio_inq_dimid(pioid, 'node', dimid)
+       if (rcode == PIO_NOERR) then
+          dimname_point = 'node'
+       else
+          call shr_log_error(trim(subname)//' ERROR: UGRID dimension nNodes or node not found in '//trim(filename), rc=rc)
+          return
+       endif
+    endif
+
+    rcode = pio_inq_dimlen(pioid, dimid, npoints)
+
+    ! Distribute points among PETs
+    npoints_local = npoints / petCount
+    n_rem = mod(npoints, petCount)
+    if (localPet < n_rem) then
+       npoints_local = npoints_local + 1
+       i_start = localPet * npoints_local + 1
+    else
+       i_start = localPet * (npoints / petCount) + n_rem + 1
+    endif
+
+    allocate(lon(npoints_local), lat(npoints_local))
+
+    ! Read subset of lon/lat
+    rcode = pio_inq_varid(pioid, 'node_lon', varid_lon)
+    rcode = pio_get_var(pioid, varid_lon, start=(/i_start/), count=(/npoints_local/), ival=lon)
+    rcode = pio_inq_varid(pioid, 'node_lat', varid_lat)
+    rcode = pio_get_var(pioid, varid_lat, start=(/i_start/), count=(/npoints_local/), ival=lat)
+    call pio_closefile(pioid)
+
+    ! Create LocStream
+    sdat%pstrm(ns)%stream_locstream = ESMF_LocStreamCreate(localCount=npoints_local, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    sdat%pstrm(ns)%stream_lsize = npoints_local
+    allocate(sdat%pstrm(ns)%stream_lon(npoints_local), sdat%pstrm(ns)%stream_lat(npoints_local))
+    sdat%pstrm(ns)%stream_lon(:) = lon(:)
+    sdat%pstrm(ns)%stream_lat(:) = lat(:)
+
+    ! Add coordinates to LocStream
+    call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="ESMF:Lon", &
+         keyData=sdat%pstrm(ns)%stream_lon, rc=rc)
+    call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="ESMF:Lat", &
+         keyData=sdat%pstrm(ns)%stream_lat, rc=rc)
+
+    ! If nointp or collapse, compute and store destination model mesh index
+    if (sdat%pstrm(ns)%use_locstream) then
+       allocate(sdat%pstrm(ns)%dst_index(npoints_local))
+       ! Create dummy fields for RegridStore to find indices
+       field_src = ESMF_FieldCreate(sdat%pstrm(ns)%stream_locstream, ESMF_TYPEKIND_R8, rc=rc)
+       field_dst = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+
+       ! Fill field_dst with global indices
+       call ESMF_FieldGet(field_dst, farrayPtr=dataptr1d, rc=rc)
+       do i=1, size(dataptr1d)
+          dataptr1d(i) = real(sdat%model_gindex(i), r8)
+       enddo
+
+       ! Use Nearest DTOS from model mesh to locstream to find which cell each point is in
+       call ESMF_FieldRegridStore(field_dst, field_src, &
+            routehandle=routehandle, &
+            regridmethod=ESMF_REGRIDMETHOD_NEAREST_DTOS, &
+            unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
+
+       call ESMF_FieldRegrid(field_dst, field_src, routehandle=routehandle, rc=rc)
+
+       call ESMF_FieldGet(field_src, farrayPtr=dataptr1d, rc=rc)
+       do i=1, npoints_local
+          if (dataptr1d(i) > 0.0_r8) then
+             sdat%pstrm(ns)%dst_index(i) = nint(dataptr1d(i))
+          else
+             sdat%pstrm(ns)%dst_index(i) = 0
+          endif
+       enddo
+
+       ! Add dst_index key to LocStream
+       call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_locstream, keyName="dst_index", &
+            keyData=sdat%pstrm(ns)%dst_index, rc=rc)
+
+       call ESMF_RouteHandleDestroy(routehandle, rc=rc)
+       call ESMF_FieldDestroy(field_src, rc=rc)
+       call ESMF_FieldDestroy(field_dst, rc=rc)
+    endif
+
+    deallocate(lon, lat)
+
+  end subroutine shr_strdata_init_locstream
 
   !===============================================================================
   subroutine shr_strdata_get_stream_nlev(sdat, stream_index, rc)
@@ -1085,13 +1287,23 @@ contains
              ! ------------------------------------------
 
              call ESMF_TraceRegionEnter(trim(lstr)//trim(timname)//'_coszen')
-             allocate(coszen(sdat%model_lsize))
+             if (sdat%pstrm(ns)%use_locstream .and. trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+                allocate(coszen(sdat%pstrm(ns)%stream_lsize))
+             else
+                allocate(coszen(sdat%model_lsize))
+             endif
 
              ! get coszen
              call ESMF_TraceRegionEnter(trim(lstr)//trim(timname)//'_coszenC')
-             call shr_tInterp_getCosz(coszen, sdat%model_lon, sdat%model_lat, ymdmod(ns), todmod, &
-                  sdat%eccen, sdat%mvelpp, sdat%lambm0, sdat%obliqr, sdat%stream(ns)%calendar, &
-                  sdat%mainproc, sdat%stream(1)%logunit)
+             if (sdat%pstrm(ns)%use_locstream .and. trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+                call shr_tInterp_getCosz(coszen, sdat%pstrm(ns)%stream_lon, sdat%pstrm(ns)%stream_lat, ymdmod(ns), todmod, &
+                     sdat%eccen, sdat%mvelpp, sdat%lambm0, sdat%obliqr, sdat%stream(ns)%calendar, &
+                     sdat%mainproc, sdat%stream(1)%logunit)
+             else
+                call shr_tInterp_getCosz(coszen, sdat%model_lon, sdat%model_lat, ymdmod(ns), todmod, &
+                     sdat%eccen, sdat%mvelpp, sdat%lambm0, sdat%obliqr, sdat%stream(ns)%calendar, &
+                     sdat%mainproc, sdat%stream(1)%logunit)
+             endif
              call ESMF_TraceRegionExit(trim(lstr)//trim(timname)//'_coszenC')
              if (debug > 0 .and. sdat%mainproc) then
                 do n = 1,size(coszen)
@@ -1104,19 +1316,29 @@ contains
              if (newdata(ns)) then
                 ! compute a new avg cosz
                 call ESMF_TraceRegionEnter(trim(lstr)//trim(timname)//'_coszenN')
-                if (.not. allocated(sdat%tavCoszen)) then
-                   allocate(sdat%tavCoszen(sdat%model_lsize))
-                end if
-                call shr_tInterp_getAvgCosz(sdat%tavCoszen, sdat%model_lon, sdat%model_lat,  &
-                     sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB,  sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB,  &
-                     sdat%eccen, sdat%mvelpp, sdat%lambm0, sdat%obliqr, sdat%modeldt, &
-                     sdat%stream(ns)%calendar, sdat%mainproc, sdat%stream(1)%logunit, rc=rc)
+                if (sdat%pstrm(ns)%use_locstream .and. trim(sdat%stream(ns)%mapalgo) == shr_stream_mapalgo_nointp) then
+                   if (.not. allocated(sdat%pstrm(ns)%tavCoszen)) then
+                      allocate(sdat%pstrm(ns)%tavCoszen(sdat%pstrm(ns)%stream_lsize))
+                   end if
+                   call shr_tInterp_getAvgCosz(sdat%pstrm(ns)%tavCoszen, sdat%pstrm(ns)%stream_lon, sdat%pstrm(ns)%stream_lat,  &
+                        sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB,  sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB,  &
+                        sdat%eccen, sdat%mvelpp, sdat%lambm0, sdat%obliqr, sdat%modeldt, &
+                        sdat%stream(ns)%calendar, sdat%mainproc, sdat%stream(1)%logunit, rc=rc)
+                else
+                   if (.not. allocated(sdat%pstrm(ns)%tavCoszen)) then
+                      allocate(sdat%pstrm(ns)%tavCoszen(sdat%model_lsize))
+                   end if
+                   call shr_tInterp_getAvgCosz(sdat%pstrm(ns)%tavCoszen, sdat%model_lon, sdat%model_lat,  &
+                        sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB,  sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB,  &
+                        sdat%eccen, sdat%mvelpp, sdat%lambm0, sdat%obliqr, sdat%modeldt, &
+                        sdat%stream(ns)%calendar, sdat%mainproc, sdat%stream(1)%logunit, rc=rc)
+                endif
                 call ESMF_TraceRegionExit(trim(lstr)//trim(timname)//'_coszenN')
                 if (debug > 0 .and. sdat%mainproc) then
                    do n = 1,size(coszen)
                       write(sdat%stream(1)%logunit,'(a,i4,2x,4(i18,2x),i8,d20.10)')' stream,lbymd,lbsec,ubymd,ubsec,newdata,n,tavgCoszen= ',&
                            ns, sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB, sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB, &
-                           n, sdat%tavCoszen(n)
+                           n, sdat%pstrm(ns)%tavCoszen(n)
                    end do
                 end if
              endif
@@ -1132,7 +1354,7 @@ contains
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    do i = 1,size(dataptr2d,dim=2)
                       if (coszen(i) > solZenMin) then
-                         dataptr2d(:,i) = dataptr2d_lb(:,i)*coszen(i)/sdat%tavCoszen(i)
+                         dataptr2d(:,i) = dataptr2d_lb(:,i)*coszen(i)/sdat%pstrm(ns)%tavCoszen(i)
                       else
                          dataptr2d(:,i) = 0._r8
                       endif
@@ -1146,7 +1368,7 @@ contains
                    if (ChkErr(rc,__LINE__,u_FILE_u)) return
                    do i = 1,size(dataptr1d)
                       if (coszen(i) > solZenMin) then
-                         dataptr1d(i) = dataptr1d_lb(i)*coszen(i)/sdat%tavCoszen(i)
+                         dataptr1d(i) = dataptr1d_lb(i)*coszen(i)/sdat%pstrm(ns)%tavCoszen(i)
                       else
                          dataptr1d(i) = 0._r8
                       endif
@@ -1545,7 +1767,7 @@ contains
 
     stream_nlev = per_stream%stream_nlev
 
-    if (ESMF_MeshIsCreated(per_stream%stream_mesh)) then
+    if (ESMF_MeshIsCreated(per_stream%stream_mesh) .or. ESMF_LocStreamIsCreated(per_stream%stream_locstream)) then
        if (.not. per_stream%stream_pio_iodesc_set) then
           if (sdat%mainproc) write(sdat%stream(1)%logunit,F00) 'setting pio descriptor : ',trim(filename)
           call shr_strdata_set_stream_iodesc(sdat, per_stream, trim(per_stream%fldlist_stream(1)), &
@@ -1581,7 +1803,7 @@ contains
        write(sdat%stream(1)%logunit,F02) 'reading file ' // trim(boundstr) //': ',trim(filename), nt
     endif
 
-    if (ESMF_FieldIsCreated(per_stream%field_stream_vector)) then
+    if (.not. per_stream%use_locstream .and. ESMF_FieldIsCreated(per_stream%field_stream_vector)) then
        call shr_string_listGetName(stream%stream_vectors,1,uname)
        call shr_string_listGetName(stream%stream_vectors,2,vname)
        call dshr_field_getfldptr(per_stream%field_stream_vector, fldptr2=dataptr2d_src, rc=rc)
@@ -1865,8 +2087,12 @@ contains
           ! Regrid the field_stream read in to the model mesh
           call dshr_fldbun_getfieldN(fldbun_data, nf, field_dst, rc=rc)
           if (chkerr(rc,__LINE__,u_FILE_u)) return
-          call ESMF_FieldRegrid(per_stream%field_stream, field_dst, routehandle=per_stream%routehandle, &
-               termorderflag=ESMF_TERMORDER_SRCSEQ, checkflag=.false., zeroregion=ESMF_REGION_TOTAL, rc=rc)
+          if (trim(stream%mapalgo) == shr_stream_mapalgo_nointp) then
+             call ESMF_FieldRedist(per_stream%field_stream, field_dst, routehandle=per_stream%routehandle, rc=rc)
+          else
+             call ESMF_FieldRegrid(per_stream%field_stream, field_dst, routehandle=per_stream%routehandle, &
+                  termorderflag=ESMF_TERMORDER_SRCSEQ, checkflag=.false., zeroregion=ESMF_REGION_TOTAL, rc=rc)
+          endif
           if (chkerr(rc,__LINE__,u_FILE_u)) return
        else
           call dshr_fldbun_getfieldN(fldbun_data, nf, field_dst, rc=rc)
@@ -2007,7 +2233,11 @@ contains
     end do
 
     ! determine compdof for stream
-    call ESMF_MeshGet(per_stream%stream_mesh, elementdistGrid=distGrid, rc=rc)
+    if (ESMF_MeshIsCreated(per_stream%stream_mesh)) then
+       call ESMF_MeshGet(per_stream%stream_mesh, elementdistGrid=distGrid, rc=rc)
+    else
+       call ESMF_LocStreamGet(per_stream%stream_locstream, distGrid=distGrid, rc=rc)
+    endif
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     call ESMF_DistGridGet(distGrid, localDe=0, elementCount=lsize, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -2016,8 +2246,13 @@ contains
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     if (stream_nlev > 1) then
        allocate(compdof3d(stream_nlev*lsize))
-       ! Assume that first 2 dimensions correspond to the compdof
-       gsize2d = dimlens(1)*dimlens(2)
+       ! If unstructured (Mesh or LocStream), horizontal is 1D
+       if (ESMF_MeshIsCreated(per_stream%stream_mesh) .or. ESMF_LocStreamIsCreated(per_stream%stream_locstream)) then
+          gsize2d = dimlens(1)
+       else
+          ! Assume that first 2 dimensions correspond to the horizontal compdof
+          gsize2d = dimlens(1)*dimlens(2)
+       endif
        cnt = 0
        do n = 1,stream_nlev
           do m = 1,size(compdof)
@@ -2031,7 +2266,14 @@ contains
     rcode = pio_inq_vartype(pioid, varid, pio_iovartype)
 
     ! determine io descriptor
-    if (ndims == 2) then
+    if (ndims == 1) then
+       if (sdat%mainproc) then
+          write(sdat%stream(1)%logunit,F03) 'setting iodesc for : '//trim(fldname)// &
+               ' with dimlens(1) = ',dimlens(1),' and the variable has no time dimension '
+       end if
+       call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1)/), compdof, &
+            per_stream%stream_pio_iodesc)
+    else if (ndims == 2) then
        rcode = pio_inq_dimname(pioid, dimids(ndims), dimname)
        if (trim(dimname) == 'time' .or. trim(dimname) == 'nt') then
           if (sdat%mainproc) then
@@ -2046,13 +2288,26 @@ contains
                   ' with dimlens(1), dimlens(2) = ',dimlens(1),dimlens(2),&
                   ' variable has no time dimension '
           end if
-          call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1),dimlens(2)/), compdof, &
-               per_stream%stream_pio_iodesc)
+          if (stream_nlev > 1) then
+             call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1),dimlens(2)/), compdof3d, &
+                  per_stream%stream_pio_iodesc)
+          else
+             call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1),dimlens(2)/), compdof, &
+                  per_stream%stream_pio_iodesc)
+          endif
        end if
 
     else if (ndims == 3) then
        rcode = pio_inq_dimname(pioid, dimids(ndims), dimname)
-       if (stream_nlev > 1) then
+       if (stream_nlev > 1 .and. (trim(dimname) == 'time' .or. trim(dimname) == 'nt')) then
+          if (sdat%mainproc) then
+             write(sdat%stream(1)%logunit,F01) 'setting iodesc for : '//trim(fldname)// &
+                  ' with dimlens(1), dimlens(2) = ',dimlens(1),dimlens(2),&
+                  ' variable has time dimension '//trim(dimname)
+          end if
+          call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1),dimlens(2)/), compdof3d, &
+               per_stream%stream_pio_iodesc)
+       else if (stream_nlev > 1) then
           write(sdat%stream(1)%logunit,F01) 'setting iodesc for : '//trim(fldname)// &
                ' with dimlens(1), dimlens(2), dimlens(3) = ',dimlens(1),dimlens(2), dimlens(3), &
                ' variable has no time dimension '//trim(dimname)
@@ -2137,6 +2392,45 @@ contains
        if (found) exit
     end do
   end subroutine shr_strdata_get_stream_pointer_1d
+
+  !===============================================================================
+  subroutine shr_strdata_get_stream_locstream(sdat, ns, locstream, rc)
+    type(shr_strdata_type) , intent(in)    :: sdat
+    integer                , intent(in)    :: ns
+    type(ESMF_LocStream)   , intent(out)   :: locstream
+    integer                , intent(out)   :: rc
+    rc = ESMF_SUCCESS
+    if (ns > 0 .and. ns <= size(sdat%pstrm)) then
+       if (sdat%pstrm(ns)%use_locstream) then
+          locstream = sdat%pstrm(ns)%stream_locstream
+       else
+          rc = ESMF_FAILURE ! or a specific error code
+       endif
+    else
+       rc = ESMF_FAILURE
+    endif
+  end subroutine shr_strdata_get_stream_locstream
+
+  !===============================================================================
+  subroutine shr_strdata_get_stream_indices(sdat, ns, indices, rc)
+    type(shr_strdata_type) , intent(in)    :: sdat
+    integer                , intent(in)    :: ns
+    integer                , pointer       :: indices(:)
+    integer                , intent(out)   :: rc
+    rc = ESMF_SUCCESS
+    nullify(indices)
+    if (ns > 0 .and. ns <= size(sdat%pstrm)) then
+       if (sdat%pstrm(ns)%use_locstream) then
+          if (allocated(sdat%pstrm(ns)%dst_index)) then
+             indices => sdat%pstrm(ns)%dst_index
+          endif
+       else
+          rc = ESMF_FAILURE
+       endif
+    else
+       rc = ESMF_FAILURE
+    endif
+  end subroutine shr_strdata_get_stream_indices
 
   !===============================================================================
   subroutine shr_strdata_get_stream_pointer_2d(sdat, strm_fld, strm_ptr, rc)
