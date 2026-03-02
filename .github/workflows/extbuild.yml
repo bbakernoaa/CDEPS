@@ -24,12 +24,14 @@ jobs:
         shell: bash
         run: |
           source /opt/spack-environment/activate.sh
-          mkdir build-cdeps
-          cd build-cdeps
-          cmake -Wno-dev -DCMAKE_BUILD_TYPE=DEBUG -DWERROR=ON ${GITHUB_WORKSPACE}
+          mkdir build
+          cd build
+          # Use PIO and ESMF from the JCSDA environment
+          export PIO_PATH=$(find /opt/software -name "libpioc.so" | head -n 1 | xargs dirname | xargs dirname)
+          cmake -Wno-dev -DCMAKE_BUILD_TYPE=DEBUG -DWERROR=ON -DDISABLE_FoX=ON -DPIO_PATH=${PIO_PATH} ${GITHUB_WORKSPACE}
           make -j$(nproc) VERBOSE=1
 
       - name: Test CDEPS
         run: |
-          cd build-cdeps
+          cd build
           make VERBOSE=1
