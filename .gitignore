@@ -37,3 +37,7 @@ share/genf90
 
 # ignore pycache
 __pycache__
+
+# build artifacts
+build/
+build-docker/

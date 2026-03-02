@@ -43,7 +43,7 @@ _stream_file_template = """
 """
 
 valid_values = {}
-valid_values["mapalgo"] = ["bilinear", "nn", "redist", "mapconsd", "mapconf", "none"]
+valid_values["mapalgo"] = ["bilinear", "nn", "redist", "mapconsd", "mapconf", "none", "collapse", "nointp"]
 valid_values["tintalgo"] = ["lower", "upper", "nearest", "linear", "coszen"]
 valid_values["taxmode"] = ["cycle", "extend", "limit"]
 
