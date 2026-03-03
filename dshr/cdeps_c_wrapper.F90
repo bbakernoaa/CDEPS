@@ -25,9 +25,10 @@ contains
     end do
 
     ! Use ESMF provided routines to initialize from C pointer
-    call ESMF_GridCompCreate(gcomp, cppObjPtr=gcomp_ptr, rc=f_rc)
-    call ESMF_ClockCreate(clock, cppObjPtr=clock_ptr, rc=f_rc)
-    call ESMF_MeshCreate(mesh, cppObjPtr=mesh_ptr, rc=f_rc)
+    ! These are standard ESMF handle initialization from C pointers
+    gcomp%this = gcomp_ptr
+    clock%this = clock_ptr
+    mesh%this  = mesh_ptr
 
     call cdeps_inline_init(gcomp, clock, mesh, trim(f_stream_path), f_rc)
     rc = int(f_rc, c_int)
@@ -40,7 +41,7 @@ contains
     type(ESMF_Clock) :: clock
     integer :: f_rc
 
-    call ESMF_ClockCreate(clock, cppObjPtr=clock_ptr, rc=f_rc)
+    clock%this = clock_ptr
     call cdeps_inline_advance(clock, f_rc)
     rc = int(f_rc, c_int)
   end subroutine c_cdeps_advance
