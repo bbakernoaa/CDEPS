@@ -18,17 +18,18 @@ contains
     integer :: i, f_rc
 
     ! Convert C string to Fortran string
-    i = 1
-    do while (stream_path(i) /= c_null_char .and. i < ESMF_MAXSTR)
+    f_stream_path = ' '
+    do i = 1, ESMF_MAXSTR
+       if (stream_path(i) == c_null_char) exit
        f_stream_path(i:i) = stream_path(i)
-       i = i + 1
     end do
-    f_stream_path(i:) = ' '
 
-    ! Convert c_ptr to ESMF types
-    call ESMF_GridCompCreate(gcomp, gcomp_ptr, rc=f_rc)
-    call ESMF_ClockCreate(clock, clock_ptr, rc=f_rc)
-    call ESMF_MeshCreate(mesh, mesh_ptr, rc=f_rc)
+    ! Convert c_ptr to ESMF types using transfer
+    ! This assumes that ESMF handles are binary-compatible with c_ptr
+    ! or at least that the pointer is the first component.
+    gcomp = transfer(gcomp_ptr, gcomp)
+    clock = transfer(clock_ptr, clock)
+    mesh  = transfer(mesh_ptr, mesh)
 
     call cdeps_inline_init(gcomp, clock, mesh, trim(f_stream_path), f_rc)
     rc = int(f_rc, c_int)
@@ -41,7 +42,7 @@ contains
     type(ESMF_Clock) :: clock
     integer :: f_rc
 
-    call ESMF_ClockCreate(clock, clock_ptr, rc=f_rc)
+    clock = transfer(clock_ptr, clock)
     call cdeps_inline_advance(clock, f_rc)
     rc = int(f_rc, c_int)
   end subroutine c_cdeps_advance
@@ -57,12 +58,11 @@ contains
     integer :: i, f_rc
 
     ! Convert C string to Fortran string
-    i = 1
-    do while (fldname(i) /= c_null_char .and. i < ESMF_MAXSTR)
+    f_fldname = ' '
+    do i = 1, ESMF_MAXSTR
+       if (fldname(i) == c_null_char) exit
        f_fldname(i:i) = fldname(i)
-       i = i + 1
     end do
-    f_fldname(i:) = ' '
 
     call cdeps_get_field_ptr(int(stream_idx), trim(f_fldname), f_data_ptr, f_rc)
 
