@@ -24,12 +24,10 @@ contains
        f_stream_path(i:i) = stream_path(i)
     end do
 
-    ! Convert c_ptr to ESMF types using transfer
-    ! This assumes that ESMF handles are binary-compatible with c_ptr
-    ! or at least that the pointer is the first component.
-    gcomp = transfer(gcomp_ptr, gcomp)
-    clock = transfer(clock_ptr, clock)
-    mesh  = transfer(mesh_ptr, mesh)
+    ! Use ESMF provided routines to initialize from C pointer
+    call ESMF_GridCompCreate(gcomp, cppObjPtr=gcomp_ptr, rc=f_rc)
+    call ESMF_ClockCreate(clock, cppObjPtr=clock_ptr, rc=f_rc)
+    call ESMF_MeshCreate(mesh, cppObjPtr=mesh_ptr, rc=f_rc)
 
     call cdeps_inline_init(gcomp, clock, mesh, trim(f_stream_path), f_rc)
     rc = int(f_rc, c_int)
@@ -42,7 +40,7 @@ contains
     type(ESMF_Clock) :: clock
     integer :: f_rc
 
-    clock = transfer(clock_ptr, clock)
+    call ESMF_ClockCreate(clock, cppObjPtr=clock_ptr, rc=f_rc)
     call cdeps_inline_advance(clock, f_rc)
     rc = int(f_rc, c_int)
   end subroutine c_cdeps_advance
