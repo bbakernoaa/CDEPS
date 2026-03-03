@@ -1,5 +1,5 @@
 project(dems Fortran)
-set(SRCFILES dems_comp.F90 dems_point_mapper.F90)
+set(SRCFILES dems_comp_nuopc.F90)
 
 foreach(FILE ${SRCFILES})
   if(EXISTS "${CASEROOT}/SourceMods/src.dems/${FILE}")
@@ -25,7 +25,7 @@ if(BLD_STANDALONE)
   # ESMX requires mod files
   foreach (SRC ${SRCFILES})
     string(REGEX REPLACE "[.]F90$" ".mod" MOD ${SRC})
-    if (NOT DEFINED CIMEROOT AND MOD STREQUAL dems_comp.mod)
+    if (NOT DEFINED CIMEROOT AND MOD STREQUAL dems_comp_nuopc.mod)
       set(MOD cdeps_dems_comp.mod)
     endif()
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${MOD}" DESTINATION include)

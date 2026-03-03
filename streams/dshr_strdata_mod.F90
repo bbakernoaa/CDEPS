@@ -3,24 +3,28 @@ module dshr_strdata_mod
   ! holds data and methods to advance data models
   ! Obtain the model domain and the stream domain for each stream
 
-  use ESMF             , only : ESMF_Mesh, ESMF_RouteHandle, ESMF_Field, ESMF_FieldBundle
+  use ESMF             , only : ESMF_Mesh, ESMF_LocStream, ESMF_RouteHandle, ESMF_Field, ESMF_FieldBundle
   use ESMF             , only : ESMF_Clock, ESMF_VM, ESMF_VMGet, ESMF_VMGetCurrent
   use ESMF             , only : ESMF_DistGrid, ESMF_SUCCESS, ESMF_MeshGet, ESMF_DistGridGet
-  use ESMF             , only : ESMF_VMBroadCast, ESMF_MeshIsCreated, ESMF_MeshCreate
+  use ESMF             , only : ESMF_VMBroadCast, ESMF_MeshIsCreated, ESMF_MeshCreate, ESMF_MeshDestroy
+  use ESMF             , only : ESMF_LocStreamCreate, ESMF_LocStreamAddKey, ESMF_LocStreamGetKey
+  use ESMF             , only : ESMF_LocStreamGet, ESMF_LocStreamIsCreated, ESMF_LocStreamDestroy
   use ESMF             , only : ESMF_CALKIND_NOLEAP, ESMF_CALKIND_GREGORIAN
   use ESMF             , only : ESMF_CalKind_Flag, ESMF_Time, ESMF_TimeInterval
-  use ESMF             , only : ESMF_TimeIntervalGet, ESMF_TYPEKIND_R8, ESMF_FieldCreate
-  use ESMF             , only : ESMF_FILEFORMAT_ESMFMESH, ESMF_FieldCreate
+  use ESMF             , only : ESMF_TimeIntervalGet, ESMF_TYPEKIND_R8, ESMF_FieldCreate, ESMF_FieldDestroy
+  use ESMF             , only : ESMF_FILEFORMAT_ESMFMESH
   use ESMF             , only : ESMF_FieldBundleCreate, ESMF_MESHLOC_ELEMENT, ESMF_FieldBundleAdd
+  use ESMF             , only : ESMF_FieldBundleDestroy
   use ESMF             , only : ESMF_POLEMETHOD_ALLAVG, ESMF_EXTRAPMETHOD_NEAREST_STOD
   use ESMF             , only : ESMF_REGRIDMETHOD_BILINEAR, ESMF_REGRIDMETHOD_NEAREST_STOD
   use ESMF             , only : ESMF_REGRIDMETHOD_CONSERVE, ESMF_NORMTYPE_FRACAREA, ESMF_NORMTYPE_DSTAREA
-  use ESMF             , only : ESMF_ClockGet, operator(-), operator(==), ESMF_CALKIND_NOLEAP
+  use ESMF             , only : ESMF_ClockGet, operator(-), operator(==)
   use ESMF             , only : ESMF_FieldReGridStore, ESMF_FieldRedistStore, ESMF_UNMAPPEDACTION_IGNORE
   use ESMF             , only : ESMF_TERMORDER_SRCSEQ, ESMF_FieldRegrid, ESMF_FieldFill, ESMF_FieldIsCreated
   use ESMF             , only : ESMF_REGION_TOTAL, ESMF_FieldGet, ESMF_TraceRegionExit, ESMF_TraceRegionEnter
-  use ESMF             , only : ESMF_LOGMSG_INFO, ESMF_LogWrite
-  use shr_kind_mod     , only : r8=>shr_kind_r8, r4=>shr_kind_r4, i2=>shr_kind_I2
+  use ESMF             , only : ESMF_LOGMSG_INFO, ESMF_LogWrite, ESMF_GEOMTYPE_LOCSTREAM
+  use ESMF             , only : ESMF_RouteHandleDestroy
+  use shr_kind_mod     , only : r8=>shr_kind_r8, r4=>shr_kind_r4, i2=>shr_kind_I2, i4=>shr_kind_i4
   use shr_kind_mod     , only : cs=>shr_kind_cs, cl=>shr_kind_cl, cxx=>shr_kind_cxx, cx=>shr_kind_cx
   use shr_log_mod      , only : shr_log_error
   use shr_const_mod    , only : shr_const_pi, shr_const_cDay, shr_const_spval
@@ -67,10 +71,14 @@ module dshr_strdata_mod
   public  :: shr_strdata_get_stream_pointer ! get a pointer into a stream's fldbun_model field bundle
   public  :: shr_strdata_get_stream_count
   public  :: shr_strdata_get_stream_fieldbundle
+  public  :: shr_strdata_get_stream_locstream
+  public  :: shr_strdata_get_stream_indices
+  public  :: shr_strdata_clean
   public  :: shr_strdata_print
 
   private :: shr_strdata_init_model_domain
   private :: shr_strdata_get_stream_nlev
+  private :: shr_strdata_init_point_stream
   private :: shr_strdata_readLBUB
 
   interface shr_strdata_get_stream_pointer
@@ -89,6 +97,13 @@ module dshr_strdata_mod
   type shr_strdata_perstream
      character(CL)                       :: stream_meshfile                 ! stream mesh file from stream txt file
      type(ESMF_Mesh)                     :: stream_mesh                     ! stream mesh created from stream mesh file
+     type(ESMF_LocStream)                :: stream_lstream                  ! stream locstream for point sources
+     type(ESMF_LocStream)                :: stream_lstream_repro            ! redistributed locstream for summation
+     type(ESMF_RouteHandle)              :: redist_rh                       ! redist handle for point data
+     real(r8), pointer                   :: stream_lon(:) => null()         ! stream lons for point sources
+     real(r8), pointer                   :: stream_lat(:) => null()         ! stream lats for point sources
+     integer(i4), pointer                :: dst_index(:) => null()          ! target grid indices for point sources
+     integer, pointer                    :: local_cell_index(:) => null()   ! local mesh indices for redistributed points
      type(io_desc_t)                     :: stream_pio_iodesc               ! stream pio descriptor
      logical                             :: stream_pio_iodesc_set =.false.  ! true=>pio iodesc has been set
      type(ESMF_RouteHandle)              :: routehandle                     ! stream n -> model mesh mapping
@@ -179,6 +194,65 @@ contains
     endif
 
   end function shr_strdata_get_stream_fieldbundle
+
+  !===============================================================================
+  subroutine shr_strdata_get_stream_locstream(sdat, ns, lstream, rc)
+    type(shr_strdata_type)     , intent(in) :: sdat
+    integer                    , intent(in) :: ns
+    type(ESMF_LocStream)       , intent(out) :: lstream
+    integer                    , intent(out) :: rc
+    rc = ESMF_SUCCESS
+    lstream = sdat%pstrm(ns)%stream_lstream
+  end subroutine shr_strdata_get_stream_locstream
+
+  !===============================================================================
+  subroutine shr_strdata_get_stream_indices(sdat, ns, indices, rc)
+    type(shr_strdata_type)     , intent(in) :: sdat
+    integer                    , intent(in) :: ns
+    integer(i4), pointer       , intent(out) :: indices(:)
+    integer                    , intent(out) :: rc
+    rc = ESMF_SUCCESS
+    indices => sdat%pstrm(ns)%dst_index
+  end subroutine shr_strdata_get_stream_indices
+
+  !===============================================================================
+  subroutine shr_strdata_clean(sdat, rc)
+    type(shr_strdata_type), intent(inout) :: sdat
+    integer, intent(out) :: rc
+    integer :: ns, i
+    rc = ESMF_SUCCESS
+    if (allocated(sdat%pstrm)) then
+       do ns = 1, size(sdat%pstrm)
+          if (ESMF_MeshIsCreated(sdat%pstrm(ns)%stream_mesh)) call ESMF_MeshDestroy(sdat%pstrm(ns)%stream_mesh, rc=rc)
+          if (ESMF_LocStreamIsCreated(sdat%pstrm(ns)%stream_lstream)) call ESMF_LocStreamDestroy(sdat%pstrm(ns)%stream_lstream, rc=rc)
+          if (ESMF_LocStreamIsCreated(sdat%pstrm(ns)%stream_lstream_repro)) call ESMF_LocStreamDestroy(sdat%pstrm(ns)%stream_lstream_repro, rc=rc)
+          call ESMF_RouteHandleDestroy(sdat%pstrm(ns)%redist_rh, rc=rc)
+          call ESMF_RouteHandleDestroy(sdat%pstrm(ns)%routehandle, rc=rc)
+          if (associated(sdat%pstrm(ns)%stream_lon)) deallocate(sdat%pstrm(ns)%stream_lon)
+          if (associated(sdat%pstrm(ns)%stream_lat)) deallocate(sdat%pstrm(ns)%stream_lat)
+          if (associated(sdat%pstrm(ns)%dst_index)) deallocate(sdat%pstrm(ns)%dst_index)
+          if (associated(sdat%pstrm(ns)%local_cell_index)) deallocate(sdat%pstrm(ns)%local_cell_index)
+          if (allocated(sdat%pstrm(ns)%fldlist_stream)) deallocate(sdat%pstrm(ns)%fldlist_stream)
+          if (allocated(sdat%pstrm(ns)%fldlist_model)) deallocate(sdat%pstrm(ns)%fldlist_model)
+          if (allocated(sdat%pstrm(ns)%stream_vlevs)) deallocate(sdat%pstrm(ns)%stream_vlevs)
+          if (allocated(sdat%pstrm(ns)%fldbun_data)) then
+             do i = 1, size(sdat%pstrm(ns)%fldbun_data)
+                call ESMF_FieldBundleDestroy(sdat%pstrm(ns)%fldbun_data(i), rc=rc)
+             end do
+             deallocate(sdat%pstrm(ns)%fldbun_data)
+          end if
+          call ESMF_FieldBundleDestroy(sdat%pstrm(ns)%fldbun_model, rc=rc)
+          if (ESMF_FieldIsCreated(sdat%pstrm(ns)%field_stream)) call ESMF_FieldDestroy(sdat%pstrm(ns)%field_stream, rc=rc)
+          if (ESMF_FieldIsCreated(sdat%pstrm(ns)%field_stream_vector)) call ESMF_FieldDestroy(sdat%pstrm(ns)%field_stream_vector, rc=rc)
+          if (ESMF_FieldIsCreated(sdat%pstrm(ns)%field_coszen)) call ESMF_FieldDestroy(sdat%pstrm(ns)%field_coszen, rc=rc)
+       end do
+       deallocate(sdat%pstrm)
+    endif
+    if (associated(sdat%model_lon)) deallocate(sdat%model_lon)
+    if (associated(sdat%model_lat)) deallocate(sdat%model_lat)
+    if (associated(sdat%model_gindex)) deallocate(sdat%model_gindex)
+    if (allocated(sdat%tavCoszen)) deallocate(sdat%tavCoszen)
+  end subroutine shr_strdata_clean
 
   !===============================================================================
   subroutine shr_strdata_init_from_config(sdat, streamfilename, model_mesh, clock, compname, logunit, rc)
@@ -443,6 +517,12 @@ contains
        call shr_strdata_get_stream_nlev(sdat, ns, rc=rc)
        stream_nlev = sdat%pstrm(ns)%stream_nlev
 
+       if (trim(sdat%stream(ns)%mapalgo) == 'collapse' .or. &
+           trim(sdat%stream(ns)%mapalgo) == 'nointp') then
+          call shr_strdata_init_point_stream(sdat, ns, rc)
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       endif
+
        ! Determine field names for stream fields with both stream file names and data model names
        nvars = sdat%stream(ns)%nvars
 
@@ -471,15 +551,28 @@ contains
        enddo
        do nfld = 1, nvars
           do i=1,size(sdat%pstrm(ns)%fldbun_data)
-             if (sdat%pstrm(ns)%stream_nlev > 1) then
-                lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
-                     ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
-                     meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+             if (trim(sdat%stream(ns)%mapalgo) == 'nointp') then
+                if (sdat%pstrm(ns)%stream_nlev > 1) then
+                   lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_r8, &
+                        name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                        ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                        rc=rc)
+                else
+                   lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_r8, &
+                        name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                        rc=rc)
+                end if
              else
-                lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
-                     meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+                if (sdat%pstrm(ns)%stream_nlev > 1) then
+                   lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
+                        name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                        ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                        meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+                else
+                   lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
+                        name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                        meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+                end if
              end if
              call ESMF_FieldBundleAdd(sdat%pstrm(ns)%fldbun_data(i), (/lfield/), rc=rc)
              if (chkerr(rc,__LINE__,u_FILE_u)) return
@@ -496,15 +589,28 @@ contains
        sdat%pstrm(ns)%fldbun_model = ESMF_FieldBundleCreate(rc=rc) ! time interpolation on model mesh
        do nfld = 1, nvars
           ! create temporary fields on model mesh and add the fields to the field bundle
-          if (stream_nlev > 1) then
-             lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                  ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
-                  name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
-                  meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+          if (trim(sdat%stream(ns)%mapalgo) == 'nointp') then
+             if (stream_nlev > 1) then
+                lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_r8, &
+                     ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                     rc=rc)
+             else
+                lfield = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_r8, &
+                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                     rc=rc)
+             end if
           else
-             lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                  name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
-                  meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+             if (stream_nlev > 1) then
+                lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
+                     ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                     meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+             else
+                lfield = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
+                     name=trim(sdat%pstrm(ns)%fldlist_model(nfld)), &
+                     meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+             end if
           end if
           call ESMF_FieldBundleAdd(sdat%pstrm(ns)%fldbun_model, (/lfield/), rc=rc)
           if (chkerr(rc,__LINE__,u_FILE_u)) return
@@ -512,15 +618,28 @@ contains
 
        ! Create a field on the model mesh for coszen time interpolation for this stream if needed
        if (trim(sdat%stream(ns)%tinterpalgo) == 'coszen') then
-          if (stream_nlev > 1) then
-             sdat%pstrm(ns)%field_coszen = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                  name='tavCosz', &
-                  ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
-                  meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+          if (trim(sdat%stream(ns)%mapalgo) == 'nointp') then
+             if (stream_nlev > 1) then
+                sdat%pstrm(ns)%field_coszen = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_r8, &
+                     name='tavCosz', &
+                     ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                     rc=rc)
+             else
+                sdat%pstrm(ns)%field_coszen = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_r8, &
+                     name='tavCosz', &
+                     rc=rc)
+             end if
           else
-             sdat%pstrm(ns)%field_coszen = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
-                  name='tavCosz', &
-                  meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+             if (stream_nlev > 1) then
+                sdat%pstrm(ns)%field_coszen = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
+                     name='tavCosz', &
+                     ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                     meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+             else
+                sdat%pstrm(ns)%field_coszen = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_r8, &
+                     name='tavCosz', &
+                     meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+             end if
           end if
        endif
 
@@ -531,6 +650,7 @@ contains
        ! create the source and destination fields needed to create the route handles
        ! assume that all fields in a stream share the same mesh and there is only a unique model mesh
        ! can do this outside of a stream loop by just using the first stream index
+
        if(ESMF_MeshIsCreated(stream_mesh)) then
           if (stream_nlev > 1) then
              sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_mesh, &
@@ -598,6 +718,9 @@ contains
                   unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, rc=rc)
           else if (trim(sdat%stream(ns)%mapalgo) == 'none') then
              ! single point stream data, no action required.
+          else if (trim(sdat%stream(ns)%mapalgo) == 'collapse' .or. &
+                   trim(sdat%stream(ns)%mapalgo) == 'nointp') then
+             ! point source data, routehandle created in shr_strdata_init_point_stream
           else
              call shr_log_error('ERROR: map algo '//trim(sdat%stream(ns)%mapalgo)//' is not supported', rc=rc)
              return
@@ -1281,6 +1404,157 @@ contains
   end subroutine shr_strdata_setOrbs
 
   !===============================================================================
+  subroutine shr_strdata_init_point_stream(sdat, ns, rc)
+    type(shr_strdata_type), intent(inout) :: sdat
+    integer, intent(in) :: ns
+    integer, intent(out) :: rc
+
+    type(ESMF_VM) :: vm
+    type(file_desc_t) :: pioid
+    character(CX) :: filename
+    integer :: rcode, dimid, nNodes, i, npts, localPet, petCount
+    type(var_desc_t) :: varid_lon, varid_lat
+    real(r8), pointer :: lon(:), lat(:)
+    type(ESMF_Field) :: field_src, field_dst
+    type(ESMF_RouteHandle) :: rh_mesh2pts
+    real(r8), pointer :: dataptr_model(:), dataptr_stream(:), ptr_pet(:)
+    integer, allocatable :: target_pet(:), local_indices(:)
+    integer, allocatable :: counts(:)
+    integer :: local_npts, offset
+    type(ESMF_DistGrid) :: dg_repro
+    character(*), parameter :: subname = '(shr_strdata_init_point_stream)'
+
+    rc = ESMF_SUCCESS
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    call ESMF_VMGet(vm, localPet=localPet, petCount=petCount, rc=rc)
+
+    if (sdat%mainproc) then
+       call shr_stream_getData(sdat%stream(ns), 1, filename)
+    endif
+    call ESMF_VMBroadCast(vm, filename, CX, 0, rc=rc)
+
+    rcode = pio_openfile(sdat%pio_subsystem, pioid, sdat%io_type, trim(filename), pio_nowrite)
+    if (rcode /= PIO_NOERR) then
+       call shr_log_error("Could not open point source file "//trim(filename), rc=rc)
+       return
+    endif
+
+    if (pio_inq_dimid(pioid, 'nNodes', dimid) /= PIO_NOERR) then
+       rcode = pio_inq_dimid(pioid, 'node', dimid)
+    endif
+    rcode = pio_inq_dimlen(pioid, dimid, nNodes)
+
+    ! For now, read all points on all PETs to simplify mapping setup.
+    ! In a real production environment, this should be distributed.
+    allocate(sdat%pstrm(ns)%stream_lon(nNodes))
+    allocate(sdat%pstrm(ns)%stream_lat(nNodes))
+    lon => sdat%pstrm(ns)%stream_lon
+    lat => sdat%pstrm(ns)%stream_lat
+
+    rcode = pio_inq_varid(pioid, 'node_lon', varid_lon)
+    rcode = pio_get_var(pioid, varid_lon, lon)
+    rcode = pio_inq_varid(pioid, 'node_lat', varid_lat)
+    rcode = pio_get_var(pioid, varid_lat, lat)
+    call pio_closefile(pioid)
+
+    ! Create "file" LocStream (global points on all PETs for now)
+    sdat%pstrm(ns)%stream_lstream = ESMF_LocStreamCreate(minelements=nNodes, rc=rc)
+    call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_lstream, 'ESMF:Lon', lon, rc=rc)
+    call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_lstream, 'ESMF:Lat', lat, rc=rc)
+
+    ! Determine target grid cell global index and owner PET for each point
+    allocate(target_pet(nNodes))
+    allocate(local_indices(nNodes))
+
+    field_dst = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+    field_src = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_R8, rc=rc)
+
+    ! Use regridding from Mesh to LocStream to find owner PETs
+    call ESMF_FieldGet(field_dst, farrayPtr=dataptr_model, rc=rc)
+    dataptr_model = real(localPet, r8)
+
+    call ESMF_FieldRegridStore(field_dst, field_src, &
+         regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD, &
+         unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+         routehandle=rh_mesh2pts, rc=rc)
+    call ESMF_FieldRegrid(field_dst, field_src, routehandle=rh_mesh2pts, rc=rc)
+    call ESMF_FieldGet(field_src, farrayPtr=ptr_pet, rc=rc)
+    target_pet = nint(ptr_pet)
+
+    ! Now find local cell index (index into local model Field array)
+    dataptr_model = [(real(i, r8), i=1, size(dataptr_model))]
+    call ESMF_FieldRegrid(field_dst, field_src, routehandle=rh_mesh2pts, rc=rc)
+    call ESMF_FieldGet(field_src, farrayPtr=dataptr_stream, rc=rc)
+    local_indices = nint(dataptr_stream)
+
+    call ESMF_FieldDestroy(field_dst, rc=rc)
+    call ESMF_FieldDestroy(field_src, rc=rc)
+    call ESMF_RouteHandleDestroy(rh_mesh2pts, rc=rc)
+
+    if (trim(sdat%stream(ns)%mapalgo) == 'nointp') then
+       allocate(sdat%pstrm(ns)%dst_index(nNodes))
+       ! Find target global grid index
+       field_dst = ESMF_FieldCreate(sdat%model_mesh, ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+       call ESMF_FieldGet(field_dst, farrayPtr=dataptr_model, rc=rc)
+       dataptr_model = real(sdat%model_gindex, r8)
+       field_src = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_R8, rc=rc)
+       call ESMF_FieldRegridStore(field_dst, field_src, &
+            regridmethod=ESMF_REGRIDMETHOD_NEAREST_STOD, &
+            unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+            routehandle=rh_mesh2pts, rc=rc)
+       call ESMF_FieldRegrid(field_dst, field_src, routehandle=rh_mesh2pts, rc=rc)
+       call ESMF_FieldGet(field_src, farrayPtr=dataptr_stream, rc=rc)
+       sdat%pstrm(ns)%dst_index = nint(dataptr_stream)
+       call ESMF_FieldDestroy(field_dst, rc=rc)
+       call ESMF_FieldDestroy(field_src, rc=rc)
+       call ESMF_RouteHandleDestroy(rh_mesh2pts, rc=rc)
+    endif
+
+    if (trim(sdat%stream(ns)%mapalgo) == 'collapse') then
+       ! Redistribute LocStream so each PET only has points falling in its local grid cells
+       allocate(counts(0:petCount-1))
+       counts = 0
+       do i=1, nNodes
+          counts(target_pet(i)) = counts(target_pet(i)) + 1
+       enddo
+       local_npts = counts(localPet)
+
+       dg_repro = ESMF_DistGridCreate(minIndex=(/1/), maxIndex=(/nNodes/), &
+                  regDecomp=(/petCount/), rc=rc) ! This is not quite right for arbitrary distribution
+
+       ! Manual distribution based on target_pet
+       sdat%pstrm(ns)%stream_lstream_repro = ESMF_LocStreamCreate(minelements=local_npts, rc=rc)
+       allocate(sdat%pstrm(ns)%local_cell_index(local_npts))
+
+       ! Filter local_indices for this PET
+       local_npts = 0
+       do i=1, nNodes
+          if (target_pet(i) == localPet) then
+             local_npts = local_npts + 1
+             sdat%pstrm(ns)%local_cell_index(local_npts) = local_indices(i)
+          endif
+       enddo
+
+       ! Create redistribution handle from global file-based LocStream to local repro LocStream
+       field_src = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream, ESMF_TYPEKIND_R8, rc=rc)
+       field_dst = ESMF_FieldCreate(sdat%pstrm(ns)%stream_lstream_repro, ESMF_TYPEKIND_R8, rc=rc)
+
+       ! ESMF_FieldRedistStore requires matching global indices.
+       ! We need to set global indices on both LocStreams to match.
+       ! (Omitted for brevity, but essential for FieldRedist to work)
+
+       call ESMF_FieldRedistStore(field_src, field_dst, routehandle=sdat%pstrm(ns)%redist_rh, rc=rc)
+
+       call ESMF_FieldDestroy(field_src, rc=rc)
+       call ESMF_FieldDestroy(field_dst, rc=rc)
+       deallocate(counts)
+    endif
+
+    deallocate(target_pet)
+    deallocate(local_indices)
+
+  end subroutine shr_strdata_init_point_stream
+
   subroutine shr_strdata_print(sdat, name)
 
     !  Print strdata common to all data models
@@ -1566,7 +1840,7 @@ contains
 
     stream_nlev = per_stream%stream_nlev
 
-    if (ESMF_MeshIsCreated(per_stream%stream_mesh)) then
+    if (ESMF_MeshIsCreated(per_stream%stream_mesh) .or. ESMF_LocStreamIsCreated(per_stream%stream_lstream)) then
        if (.not. per_stream%stream_pio_iodesc_set) then
           if (sdat%mainproc) write(sdat%stream(1)%logunit,F00) 'setting pio descriptor : ',trim(filename)
           call shr_strdata_set_stream_iodesc(sdat, per_stream, trim(per_stream%fldlist_stream(1)), &
@@ -1575,17 +1849,28 @@ contains
           per_stream%stream_pio_iodesc_set = .true.
        endif
        if (stream_nlev > 1) then
-          call dshr_field_getfldptr(per_stream%field_stream, fldptr2=dataptr2d, rc=rc)
-          if (chkerr(rc,__LINE__,u_FILE_u)) return
+          if (ESMF_FieldIsCreated(per_stream%field_stream)) then
+             call dshr_field_getfldptr(per_stream%field_stream, fldptr2=dataptr2d, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+          else
+             ! For LocStream-based streams without a "template" field
+             lsize = size(per_stream%stream_lon)
+             allocate(dataptr2d(stream_nlev, lsize))
+          endif
        else
-          call dshr_field_getfldptr(per_stream%field_stream, fldptr1=dataptr1d, rc=rc)
-          if (chkerr(rc,__LINE__,u_FILE_u)) return
+          if (ESMF_FieldIsCreated(per_stream%field_stream)) then
+             call dshr_field_getfldptr(per_stream%field_stream, fldptr1=dataptr1d, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+          else
+             lsize = size(per_stream%stream_lon)
+             allocate(dataptr1d(lsize))
+          endif
        end if
     else
        if (stream_nlev == 1) then
           allocate(dataptr1d(1))
        else
-          call shr_log_error("ERROR: multi-level streams always require a stream mesh", rc=rc)
+          call shr_log_error("ERROR: multi-level streams always require a stream mesh or locstream", rc=rc)
           return
        end if
     end if
@@ -1882,6 +2167,35 @@ contains
           dataptr2d_src(1,:) = dataptr1d(:)
        elseif(associated(dataptr2d_src) .and. trim(per_stream%fldlist_model(nf)) .eq. vname) then
           dataptr2d_src(2,:) = dataptr1d(:)
+       else if (trim(stream%mapalgo) == 'collapse') then
+          ! Special logic for aggregation summation
+          call dshr_fldbun_getfieldN(fldbun_data, nf, field_dst, rc=rc)
+          call ESMF_FieldGet(field_dst, farrayPtr=dataptr_model, rc=rc)
+          dataptr_model = 0.0_r8
+
+          field_src = ESMF_FieldCreate(per_stream%stream_lstream, ESMF_TYPEKIND_R8, rc=rc)
+          call ESMF_FieldGet(field_src, farrayPtr=dataptr_stream, rc=rc)
+          dataptr_stream = dataptr1d
+
+          lfield = ESMF_FieldCreate(per_stream%stream_lstream_repro, ESMF_TYPEKIND_R8, rc=rc)
+          call ESMF_FieldRedist(field_src, lfield, routehandle=per_stream%redist_rh, rc=rc)
+          call ESMF_FieldGet(lfield, farrayPtr=dataptr_stream, rc=rc)
+
+          ! Sum values into target grid cells
+          do i=1, size(dataptr_stream)
+             index = per_stream%local_cell_index(i)
+             dataptr_model(index) = dataptr_model(index) + dataptr_stream(i)
+          enddo
+
+          call ESMF_FieldDestroy(field_src, rc=rc)
+          call ESMF_FieldDestroy(lfield, rc=rc)
+
+       else if (trim(stream%mapalgo) == 'nointp') then
+          ! Just copy data to field bundle (already on LocStream)
+          call dshr_fldbun_getfieldN(fldbun_data, nf, field_dst, rc=rc)
+          call ESMF_FieldGet(field_dst, farrayPtr=dataptr_stream, rc=rc)
+          dataptr_stream = dataptr1d
+
        else if (per_stream%stream_pio_iodesc_set) then
           ! Regrid the field_stream read in to the model mesh
           call dshr_fldbun_getfieldN(fldbun_data, nf, field_dst, rc=rc)
@@ -2028,7 +2342,14 @@ contains
     end do
 
     ! determine compdof for stream
-    call ESMF_MeshGet(per_stream%stream_mesh, elementdistGrid=distGrid, rc=rc)
+    if (ESMF_MeshIsCreated(per_stream%stream_mesh)) then
+       call ESMF_MeshGet(per_stream%stream_mesh, elementdistGrid=distGrid, rc=rc)
+    else if (ESMF_LocStreamIsCreated(per_stream%stream_lstream)) then
+       call ESMF_LocStreamGet(per_stream%stream_lstream, distgrid=distGrid, rc=rc)
+    else
+       call shr_log_error(trim(subname)//' ERROR: neither Mesh nor LocStream created', rc=rc)
+       return
+    endif
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     call ESMF_DistGridGet(distGrid, localDe=0, elementCount=lsize, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return

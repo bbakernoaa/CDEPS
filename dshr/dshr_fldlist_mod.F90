@@ -6,6 +6,7 @@ module dshr_fldlist_mod
   use ESMF             , only : ESMF_LOGERR_PASSTHRU, ESMF_LogFoundError
   use ESMF             , only : ESMF_MESHLOC_ELEMENT, ESMF_TYPEKIND_R8, ESMF_StateRemove
   use ESMF             , only : ESMF_Distgrid, ESMF_DistGridCreate, ESMF_FieldCreate
+  use ESMF             , only : ESMF_LocStream
   use shr_kind_mod     , only : r8=>shr_kind_r8, cs=>shr_kind_cs, cl=>shr_kind_cl, cxx=>shr_kind_cxx
   use dshr_methods_mod , only : chkerr
 
@@ -53,16 +54,17 @@ contains
 
   !===============================================================================
 
-  subroutine dshr_fldlist_realize(state, fldLists, flds_scalar_name, flds_scalar_num, mesh, tag, export_all, rc)
+  subroutine dshr_fldlist_realize(state, fldLists, flds_scalar_name, flds_scalar_num, mesh, tag, export_all, lstream, rc)
 
     ! input/output variables
     type(ESMF_State)    , intent(inout) :: state
     type(fldlist_type)  , pointer       :: fldLists
-    character(len=*)    , intent(in)    :: flds_scalar_name
-    integer             , intent(in)    :: flds_scalar_num
-    type(ESMF_Mesh)     , intent(in)    :: mesh
-    character(len=*)    , intent(in)    :: tag
-    logical             , intent(in)    :: export_all
+    character(len=*)    , intent(in), optional :: flds_scalar_name
+    integer             , intent(in), optional :: flds_scalar_num
+    type(ESMF_Mesh)     , intent(in), optional :: mesh
+    character(len=*)    , intent(in), optional :: tag
+    logical             , intent(in), optional :: export_all
+    type(ESMF_LocStream), intent(in), optional :: lstream
     integer             , intent(inout) :: rc
 
     ! local variables
@@ -85,25 +87,37 @@ contains
              cycle
           end if
 
-          if (stdname == trim(flds_scalar_name)) then
-             call ESMF_LogWrite(trim(subname)//trim(tag)//" Field = "//trim(stdname)//" is connected on root pe", &
+          if (present(flds_scalar_name) .and. stdname == trim(flds_scalar_name)) then
+             call ESMF_LogWrite(trim(subname)//" Field = "//trim(stdname)//" is connected on root pe", &
                   ESMF_LOGMSG_INFO)
              ! Create the scalar field
              call SetScalarField(field, flds_scalar_name, flds_scalar_num, rc=rc)
              if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=u_FILE_u)) return
           else
              ! Create the field
-             if (fldList%ungridded_lbound > 0 .and. fldList%ungridded_ubound > 0) then
-                field = ESMF_FieldCreate(mesh, ESMF_TYPEKIND_R8, name=stdname, meshloc=ESMF_MESHLOC_ELEMENT, &
-                     ungriddedLbound=(/fldList%ungridded_lbound/), &
-                     ungriddedUbound=(/fldList%ungridded_ubound/), gridToFieldMap=(/2/), rc=rc)
-                if (ChkErr(rc,__LINE__,u_FILE_u)) return
+             if (present(lstream)) then
+                if (fldList%ungridded_lbound > 0 .and. fldList%ungridded_ubound > 0) then
+                   field = ESMF_FieldCreate(lstream, ESMF_TYPEKIND_R8, name=stdname, &
+                        ungriddedLbound=(/fldList%ungridded_lbound/), &
+                        ungriddedUbound=(/fldList%ungridded_ubound/), gridToFieldMap=(/2/), rc=rc)
+                else
+                   field = ESMF_FieldCreate(lstream, ESMF_TYPEKIND_R8, name=stdname, rc=rc)
+                endif
+                call ESMF_LogWrite(trim(subname)//" Field = "//trim(stdname)//" is connected using LocStream", &
+                     ESMF_LOGMSG_INFO)
              else
-                field = ESMF_FieldCreate(mesh, ESMF_TYPEKIND_R8, name=stdname, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
-                if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=u_FILE_u)) return
-             end if
-             call ESMF_LogWrite(trim(subname)//trim(tag)//" Field = "//trim(stdname)//" is connected using mesh", &
-                  ESMF_LOGMSG_INFO)
+                if (fldList%ungridded_lbound > 0 .and. fldList%ungridded_ubound > 0) then
+                   field = ESMF_FieldCreate(mesh, ESMF_TYPEKIND_R8, name=stdname, meshloc=ESMF_MESHLOC_ELEMENT, &
+                        ungriddedLbound=(/fldList%ungridded_lbound/), &
+                        ungriddedUbound=(/fldList%ungridded_ubound/), gridToFieldMap=(/2/), rc=rc)
+                   if (ChkErr(rc,__LINE__,u_FILE_u)) return
+                else
+                   field = ESMF_FieldCreate(mesh, ESMF_TYPEKIND_R8, name=stdname, meshloc=ESMF_MESHLOC_ELEMENT, rc=rc)
+                   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=u_FILE_u)) return
+                end if
+                call ESMF_LogWrite(trim(subname)//" Field = "//trim(stdname)//" is connected using mesh", &
+                     ESMF_LOGMSG_INFO)
+             endif
           endif
 
           ! NOW call NUOPC_Realize

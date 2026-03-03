@@ -82,6 +82,8 @@ module dshr_stream_mod
   character(CS),parameter,public :: shr_stream_mapalgo_consf    = 'consf'
   character(CS),parameter,public :: shr_stream_mapalgo_consd    = 'consd'
   character(CS),parameter,public :: shr_stream_mapalgo_none     = 'none'
+  character(CS),parameter,public :: shr_stream_mapalgo_collapse = 'collapse'
+  character(CS),parameter,public :: shr_stream_mapalgo_nointp   = 'nointp'
 
   ! a useful derived type to use inside shr_streamType ---
   type shr_stream_file_type
