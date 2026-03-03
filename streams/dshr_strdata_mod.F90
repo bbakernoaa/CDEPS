@@ -1412,7 +1412,7 @@ contains
     type(ESMF_VM) :: vm
     type(file_desc_t) :: pioid
     character(CX) :: filename
-    integer :: rcode, dimid, nNodes, i, npts, localPet, petCount
+    integer :: rcode, dimid, nNodes, i, localPet, petCount
     type(var_desc_t) :: varid_lon, varid_lat
     real(r8), pointer :: lon(:), lat(:)
     type(ESMF_Field) :: field_src, field_dst
