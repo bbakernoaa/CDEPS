@@ -1405,6 +1405,7 @@ contains
 
   !===============================================================================
   subroutine shr_strdata_init_point_stream(sdat, ns, rc)
+    use ESMF, only: ESMF_DistGridCreate
     type(shr_strdata_type), intent(inout) :: sdat
     integer, intent(in) :: ns
     integer, intent(out) :: rc
@@ -1420,7 +1421,7 @@ contains
     real(r8), pointer :: dataptr_model(:), dataptr_stream(:), ptr_pet(:)
     integer, allocatable :: target_pet(:), local_indices(:)
     integer, allocatable :: counts(:)
-    integer :: local_npts, offset
+    integer :: local_npts
     type(ESMF_DistGrid) :: dg_repro
     character(*), parameter :: subname = '(shr_strdata_init_point_stream)'
 
@@ -1458,7 +1459,7 @@ contains
     call pio_closefile(pioid)
 
     ! Create "file" LocStream (global points on all PETs for now)
-    sdat%pstrm(ns)%stream_lstream = ESMF_LocStreamCreate(minelements=nNodes, rc=rc)
+    sdat%pstrm(ns)%stream_lstream = ESMF_LocStreamCreate(localCount=nNodes, rc=rc)
     call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_lstream, 'ESMF:Lon', lon, rc=rc)
     call ESMF_LocStreamAddKey(sdat%pstrm(ns)%stream_lstream, 'ESMF:Lat', lat, rc=rc)
 
@@ -1520,10 +1521,10 @@ contains
        local_npts = counts(localPet)
 
        dg_repro = ESMF_DistGridCreate(minIndex=(/1/), maxIndex=(/nNodes/), &
-                  regDecomp=(/petCount/), rc=rc) ! This is not quite right for arbitrary distribution
+                  regDecomp=(/petCount/), rc=rc)
 
        ! Manual distribution based on target_pet
-       sdat%pstrm(ns)%stream_lstream_repro = ESMF_LocStreamCreate(minelements=local_npts, rc=rc)
+       sdat%pstrm(ns)%stream_lstream_repro = ESMF_LocStreamCreate(localCount=local_npts, rc=rc)
        allocate(sdat%pstrm(ns)%local_cell_index(local_npts))
 
        ! Filter local_indices for this PET
@@ -1782,6 +1783,9 @@ contains
     integer                  :: pio_iovartype
     real(r8), pointer        :: nv_coords(:), nu_coords(:)
     real(r8), pointer        :: data_u_dst(:), data_v_dst(:)
+    real(r8), pointer        :: dataptr_model(:), dataptr_stream(:)
+    type(ESMF_Field)         :: field_src, lfield
+    integer                  :: index
     real(r8)                 :: lat, lon
     real(r8)                 :: sinlat, sinlon
     real(r8)                 :: coslat, coslon
