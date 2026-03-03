@@ -2,7 +2,9 @@ project(dshr Fortran)
 
 set(SRCFILES  dshr_dfield_mod.F90
               dshr_fldlist_mod.F90
-              dshr_mod.F90)
+              dshr_mod.F90
+              cdeps_inline_mod.F90
+              cdeps_c_wrapper.F90)
 
 foreach(FILE ${SRCFILES})
   if(EXISTS "${CASEROOT}/SourceMods/src.cdeps/${FILE}")
@@ -25,3 +27,6 @@ target_include_directories (dshr PRIVATE "${PIO_Fortran_INCLUDE_DIR}")
 install(TARGETS dshr
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib)
+
+install(FILES cdeps_interface.h
+        DESTINATION include)

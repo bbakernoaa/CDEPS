@@ -31,6 +31,15 @@
 *.out
 *.app
 
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+Makefile
+build/
+
 # Externals
 fox
 share/genf90
