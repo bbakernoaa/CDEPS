@@ -5,7 +5,7 @@ module dshr_strdata_mod
 
   use ESMF             , only : ESMF_Mesh, ESMF_LocStream, ESMF_RouteHandle, ESMF_Field, ESMF_FieldBundle
   use ESMF             , only : ESMF_Clock, ESMF_VM, ESMF_VMGet, ESMF_VMGetCurrent
-  use ESMF             , only : ESMF_DistGrid, ESMF_SUCCESS, ESMF_MeshGet, ESMF_DistGridGet
+  use ESMF             , only : ESMF_DistGrid, ESMF_SUCCESS, ESMF_MeshGet, ESMF_DistGridGet, ESMF_DistGridCreate
   use ESMF             , only : ESMF_VMBroadCast, ESMF_MeshIsCreated, ESMF_MeshCreate, ESMF_MeshDestroy
   use ESMF             , only : ESMF_LocStreamCreate, ESMF_LocStreamAddKey, ESMF_LocStreamGetKey
   use ESMF             , only : ESMF_LocStreamGet, ESMF_LocStreamIsCreated, ESMF_LocStreamDestroy
@@ -23,7 +23,7 @@ module dshr_strdata_mod
   use ESMF             , only : ESMF_TERMORDER_SRCSEQ, ESMF_FieldRegrid, ESMF_FieldFill, ESMF_FieldIsCreated
   use ESMF             , only : ESMF_REGION_TOTAL, ESMF_FieldGet, ESMF_TraceRegionExit, ESMF_TraceRegionEnter
   use ESMF             , only : ESMF_LOGMSG_INFO, ESMF_LogWrite, ESMF_GEOMTYPE_LOCSTREAM
-  use ESMF             , only : ESMF_RouteHandleDestroy
+  use ESMF             , only : ESMF_RouteHandleDestroy, ESMF_FieldRedist
   use shr_kind_mod     , only : r8=>shr_kind_r8, r4=>shr_kind_r4, i2=>shr_kind_I2, i4=>shr_kind_i4
   use shr_kind_mod     , only : cs=>shr_kind_cs, cl=>shr_kind_cl, cxx=>shr_kind_cxx, cx=>shr_kind_cx
   use shr_log_mod      , only : shr_log_error
@@ -1405,7 +1405,6 @@ contains
 
   !===============================================================================
   subroutine shr_strdata_init_point_stream(sdat, ns, rc)
-    use ESMF, only: ESMF_DistGridCreate
     type(shr_strdata_type), intent(inout) :: sdat
     integer, intent(in) :: ns
     integer, intent(out) :: rc
