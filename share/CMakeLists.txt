@@ -22,7 +22,11 @@ add_library(cdeps_share  ${GenF90_SRCS}
                          shr_is_restart_fh_mod.F90
                          nuopc_shr_methods.F90)
 
-target_include_directories (cdeps_share PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${ESMF_F90COMPILEPATHS} ${PIO_Fortran_INCLUDE_DIRS})
+target_include_directories (cdeps_share PUBLIC 
+                            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> 
+                            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> 
+                            ${ESMF_F90COMPILEPATHS} 
+                            ${PIO_Fortran_INCLUDE_DIRS})
 
 install(TARGETS cdeps_share
         LIBRARY DESTINATION lib)

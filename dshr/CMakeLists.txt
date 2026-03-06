@@ -15,10 +15,9 @@ endforeach()
 add_library(dshr ${SRCFILES})
 
 if(BLD_STANDALONE)
-  add_dependencies(dshr cdeps_share)
-  target_include_directories (dshr PRIVATE ${CMAKE_BINARY_DIR}/share)
+  target_link_libraries(dshr PUBLIC cdeps_share)
 endif()
-add_dependencies(dshr streams)
+target_link_libraries(dshr PUBLIC streams)
 
 target_include_directories (dshr PRIVATE ${ESMF_F90COMPILEPATHS})
 target_include_directories (dshr PRIVATE "${PIO_Fortran_INCLUDE_DIR}")

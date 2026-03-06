@@ -24,8 +24,7 @@ if(NOT DISABLE_FoX)
 endif()
 
 if(BLD_STANDALONE)
-  add_dependencies(streams cdeps_share)
-  target_include_directories (streams PRIVATE ${CMAKE_BINARY_DIR}/share)
+  target_link_libraries(streams PUBLIC cdeps_share)
 endif()
 
 target_include_directories (streams PRIVATE ${ESMF_F90COMPILEPATHS})
