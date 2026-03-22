@@ -5,8 +5,18 @@ project(TIDE LANGUAGES CXX Fortran VERSION 0.1)
 option(WERROR "add the -Werror flag to compiler" OFF)
 
 # Find Dependencies
+if (DEFINED ENV{PIO_ROOT})
+  message("PIO_ROOT is $ENV{PIO_ROOT}")
+else()
+  if (DEFINED PIO)
+    set(PIO_PATH ${PIO})
+  else()
+    set(PIO_PATH $ENV{PIO})
+  endif()
+endif()
+
 find_package(ESMF REQUIRED)
-find_package(PIO REQUIRED COMPONENT C Fortran)
+find_package(PIO REQUIRED COMPONENT C Fortran PATHS ${PIO_PATH})
 find_package(MPI REQUIRED)
 
 # yaml-cpp (Assuming it's available or can be fetched)
