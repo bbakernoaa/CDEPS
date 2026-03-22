@@ -55,6 +55,12 @@ target_link_libraries(tide PUBLIC
   PIO::piofortran
 )
 
+# Testing
+enable_testing()
+add_executable(test_tide tide/tests/test_tide.F90)
+target_link_libraries(test_tide PRIVATE tide)
+add_test(NAME tide_api_test COMMAND test_tide)
+
 # Install rules
 install(TARGETS tide EXPORT tide DESTINATION lib)
 install(EXPORT tide DESTINATION lib/cmake)
