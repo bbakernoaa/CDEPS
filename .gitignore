@@ -37,4 +37,7 @@ share/genf90
 
 # ignore pycache
 __pycache__
+
+# TIDE build artifacts
 build/
+*_output.log
