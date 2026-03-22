@@ -515,9 +515,9 @@ contains
     streamdat(1)%dtlimit      = stream_dtlimit
 #ifdef CESMCOUPLED
     ! Initialize stream pio
-    streamdat(1)%pio_subsystem => shr_pio_getiosys(trim(compname))
-    streamdat(1)%pio_iotype    =  shr_pio_getiotype(trim(compname))
-    streamdat(1)%pio_ioformat  =  shr_pio_getioformat(trim(compname))
+    streamdat(1)%pio_subsystem => null()
+    streamdat(1)%pio_iotype    =  0
+    streamdat(1)%pio_ioformat  =  0
     ! This is to avoid an unused dummy argument warning
     if(.false.) then
        if(associated(pio_subsystem)) print *, io_type, io_format

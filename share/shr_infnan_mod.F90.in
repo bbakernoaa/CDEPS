@@ -1,6 +1,6 @@
 ! Flag representing compiler support of Fortran 2003's
 ! ieee_arithmetic intrinsic module.
-#if defined CPRIBM || defined CPRPGI || defined CPRINTEL ||  defined CPRCRAY || defined CPRNAG
+#if defined CPRIBM || defined CPRPGI || defined CPRINTEL ||  defined CPRCRAY || defined CPRNAG || defined(__GFORTRAN__)
 #define HAVE_IEEE_ARITHMETIC
 #endif
 
@@ -65,7 +65,7 @@ public :: shr_infnan_isposinf
 public :: shr_infnan_isneginf
 
 ! Locally defined isnan.
-#ifndef HAVE_IEEE_ARITHMETIC
+#if !defined(HAVE_IEEE_ARITHMETIC)
 interface shr_infnan_isnan
    ! TYPE double,real
    module procedure shr_infnan_isnan_{TYPE}
@@ -149,7 +149,7 @@ type(shr_infnan_inf_type), public, parameter :: shr_infnan_neginf = &
 ! Bit patterns for implementation without ieee_arithmetic.
 ! Note that in order to satisfy gfortran's range check, we have to use
 ! ibset to set the sign bit from a BOZ pattern.
-#ifndef HAVE_IEEE_ARITHMETIC
+#if !defined(HAVE_IEEE_ARITHMETIC)
 ! Single precision.
 integer(i4), parameter :: ssnan_pat = int(Z'7FA00000',i4)
 integer(i4), parameter :: sqnan_pat = int(Z'7FC00000',i4)

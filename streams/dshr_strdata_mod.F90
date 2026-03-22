@@ -202,9 +202,9 @@ contains
 
 #ifdef CESMCOUPLED
     ! Initialize sdat  pio
-    sdat%pio_subsystem => shr_pio_getiosys(trim(compname))
-    sdat%io_type       =  shr_pio_getiotype(trim(compname))
-    sdat%io_format     =  shr_pio_getioformat(trim(compname))
+    sdat%pio_subsystem => null()
+    sdat%io_type       =  0
+    sdat%io_format     =  0
 #endif
 
     call ESMF_VMGetCurrent(vm, rc=rc)
@@ -281,9 +281,9 @@ contains
     sdat%mainproc = (my_task == main_task)
 #ifdef CESMCOUPLED
     ! Initialize sdat pio
-    sdat%pio_subsystem => shr_pio_getiosys(trim(compname))
-    sdat%io_type       =  shr_pio_getiotype(trim(compname))
-    sdat%io_format     =  shr_pio_getioformat(trim(compname))
+    sdat%pio_subsystem => null()
+    sdat%io_type       =  0
+    sdat%io_format     =  0
 #endif
 
     ! Check source and destination mask, defaults are 0
