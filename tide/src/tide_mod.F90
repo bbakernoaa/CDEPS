@@ -1,3 +1,5 @@
+!> @file tide_mod.F90
+!> @brief High-level API for the TIDE library.
 module tide_mod
   use tide_yaml_mod
   use dshr_strdata_mod
@@ -6,12 +8,19 @@ module tide_mod
   use shr_kind_mod, only : r8 => shr_kind_r8, cl => shr_kind_cl, cs => shr_kind_cs
   implicit none
 
+  !> @brief TIDE handle type containing stream data information.
   type tide_type
-    type(shr_strdata_type) :: sdat
+    type(shr_strdata_type) :: sdat !< Core stream data structure
   end type tide_type
 
 contains
 
+  !> @brief Initializes the TIDE library from a YAML configuration.
+  !> @param tide The TIDE handle to initialize.
+  !> @param config_yaml Path to the YAML configuration file.
+  !> @param model_mesh The ESMF Mesh of the model.
+  !> @param clock The model's ESMF Clock.
+  !> @param rc Return code (ESMF_SUCCESS or ESMF_FAILURE).
   subroutine tide_init(tide, config_yaml, model_mesh, clock, rc)
     use dshr_strdata_mod, only : shr_strdata_init_from_inline
     type(tide_type), intent(inout) :: tide
@@ -94,6 +103,10 @@ contains
 
   end subroutine tide_init
 
+  !> @brief Advances TIDE streams to the current clock time.
+  !> @param tide The TIDE handle.
+  !> @param clock The current ESMF Clock.
+  !> @param rc Return code.
   subroutine tide_advance(tide, clock, rc)
     use shr_cal_mod, only : shr_cal_date2ymd
     type(tide_type), intent(inout) :: tide
@@ -103,13 +116,24 @@ contains
     type(ESMF_Time) :: currTime
     integer :: yy, mm, dd, tod, ymd
 
+    ! Get current time from clock
     call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
+
+    ! Extract YMD and TOD for the interpolation logic
     call ESMF_TimeGet(currTime, yy=yy, mm=mm, dd=dd, s=tod, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
     call shr_cal_ymd2date(yy, mm, dd, ymd)
 
+    ! Advance core stream data
     call shr_strdata_advance(tide%sdat, ymd, tod, 6, "TIDE", rc=rc)
   end subroutine tide_advance
 
+  !> @brief Retrieves a pointer to the interpolated data for a given field.
+  !> @param tide The TIDE handle.
+  !> @param field_name Name of the field in the model.
+  !> @param ptr 2D pointer to be associated with the field data.
+  !> @param rc Return code.
   subroutine tide_get_ptr(tide, field_name, ptr, rc)
     type(tide_type), intent(in) :: tide
     character(len=*), intent(in) :: field_name

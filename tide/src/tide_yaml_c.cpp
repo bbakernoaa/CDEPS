@@ -1,3 +1,8 @@
+/**
+ * @file tide_yaml_c.cpp
+ * @brief C++ implementation of the TIDE YAML parser using yaml-cpp.
+ */
+
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <string>
@@ -5,6 +10,10 @@
 #include <cstring>
 
 extern "C" {
+    /**
+     * @struct tide_stream_config_t
+     * @brief Configuration for a single TIDE data stream.
+     */
     typedef struct {
         char* name;
         char* mesh_file;
@@ -25,11 +34,20 @@ extern "C" {
         int num_fields;
     } tide_stream_config_t;
 
+    /**
+     * @struct tide_config_t
+     * @brief Top-level configuration containing multiple TIDE streams.
+     */
     typedef struct {
         tide_stream_config_t* streams;
         int num_streams;
     } tide_config_t;
 
+    /**
+     * @brief Parses a TIDE YAML configuration file.
+     * @param filename The path to the YAML file.
+     * @return A pointer to a tide_config_t structure, or nullptr on failure.
+     */
     tide_config_t* tide_parse_yaml(const char* filename) {
         try {
             YAML::Node config = YAML::LoadFile(filename);
@@ -82,6 +100,10 @@ extern "C" {
         }
     }
 
+    /**
+     * @brief Frees the memory allocated by tide_parse_yaml.
+     * @param cfg The configuration structure to free.
+     */
     void tide_free_config(tide_config_t* cfg) {
         if (!cfg) return;
         for (int i = 0; i < cfg->num_streams; ++i) {
