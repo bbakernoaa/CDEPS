@@ -1,0 +1,6 @@
+# The fortran modules provided by this target.
+provides
+ dshr_methods_mod.mod
+ dshr_strdata_mod.mod
+ dshr_stream_mod.mod
+ dshr_tinterp_mod.mod

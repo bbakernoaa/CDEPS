@@ -1,0 +1,17 @@
+# The fortran modules provided by this target.
+provides
+ nuopc_shr_methods.mod
+ shr_abort_mod.mod
+ shr_assert_mod.mod
+ shr_cal_mod.mod
+ shr_const_mod.mod
+ shr_file_mod.mod
+ shr_infnan_mod.mod
+ shr_kind_mod.mod
+ shr_log_mod.mod
+ shr_nl_mod.mod
+ shr_orb_mod.mod
+ shr_strconvert_mod.mod
+ shr_string_mod.mod
+ shr_sys_mod.mod
+ shr_timer_mod.mod

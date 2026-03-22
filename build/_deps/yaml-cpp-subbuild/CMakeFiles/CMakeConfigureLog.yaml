@@ -1,0 +1,11 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/cmake-3.27.9-c2k2vv4ecnlm7zphu7sqkt2e6fcoaqb2/share/cmake-3.27/Modules/CMakeDetermineSystem.cmake:211 (message)"
+      - "CMakeLists.txt:16 (project)"
+    message: |
+      The system is: Linux - 6.8.0 - x86_64
+...

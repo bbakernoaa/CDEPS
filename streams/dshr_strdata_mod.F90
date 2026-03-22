@@ -459,8 +459,7 @@ contains
           sdat%pstrm(ns)%stream_ub = 2
           allocate(sdat%pstrm(ns)%fldbun_data(2))
           if (mainproc) then
-             write(sdat%stream(1)%logunit,'(a,i8)') trim(subname)//" Creating field bundle array fldbun_data of size 2 for stream ",&
-                  ns
+             write(sdat%stream(1)%logunit,*) trim(subname)//" Creating field bundle array fldbun_data of size 2 for stream ", ns
           end if
        else if(sdat%stream(ns)%readmode=='full_file') then
           ! TODO: add this in
@@ -1035,7 +1034,7 @@ contains
                 if(sdat%stream(ns)%dtlimit == -1) then
                    sdat%pstrm(ns)%override_annual_cycle = .true.
                    if(sdat%mainproc) then
-                      write(logunit,*) trim(subname),' WARNING: Stream ',ns,' is not cycling on annual boundaries, and dtlimit check has been overridden'
+                      write(logunit,*) trim(subname)//' WARNING: Stream is not cycling on annual boundaries'
                    endif
                 else
                    dtime = abs(real(dday,r8) + real(sdat%pstrm(ns)%todUB-sdat%pstrm(ns)%todLB,r8)/shr_const_cDay)
@@ -1111,9 +1110,7 @@ contains
                 call ESMF_TraceRegionExit(trim(lstr)//trim(timname)//'_coszenN')
                 if (debug > 0 .and. sdat%mainproc) then
                    do n = 1,size(coszen)
-                      write(sdat%stream(1)%logunit,'(a,i4,2x,4(i18,2x),i8,d20.10)')' stream,lbymd,lbsec,ubymd,ubsec,newdata,n,tavgCoszen= ',&
-                           ns, sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB, sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB, &
-                           n, sdat%tavCoszen(n)
+                      write(sdat%stream(1)%logunit,*) ' stream,lbymd,lbsec,ubymd,ubsec,newdata,n,tavgCoszen= ', ns
                    end do
                 end if
              endif

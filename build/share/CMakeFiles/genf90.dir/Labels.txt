@@ -1,0 +1,13 @@
+# Target labels
+ genf90
+# Source files and their labels
+/tide/build/share/CMakeFiles/genf90
+/tide/build/share/CMakeFiles/genf90.rule
+/tide/build/share/CMakeFiles/genf90-complete.rule
+/tide/build/share/genf90/src/genf90-stamp/genf90-build.rule
+/tide/build/share/genf90/src/genf90-stamp/genf90-configure.rule
+/tide/build/share/genf90/src/genf90-stamp/genf90-download.rule
+/tide/build/share/genf90/src/genf90-stamp/genf90-install.rule
+/tide/build/share/genf90/src/genf90-stamp/genf90-mkdir.rule
+/tide/build/share/genf90/src/genf90-stamp/genf90-patch.rule
+/tide/build/share/genf90/src/genf90-stamp/genf90-update.rule

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdshr.a CMakeFiles/dshr.dir/dshr_dfield_mod.F90.o CMakeFiles/dshr.dir/dshr_fldlist_mod.F90.o CMakeFiles/dshr.dir/dshr_mod.F90.o
+/usr/bin/ranlib libdshr.a

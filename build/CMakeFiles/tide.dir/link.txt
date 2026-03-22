@@ -1,0 +1,2 @@
+/usr/bin/ar qc libtide.a CMakeFiles/tide.dir/tide/src/tide_yaml_c.cpp.o CMakeFiles/tide.dir/tide/src/tide_yaml_mod.F90.o CMakeFiles/tide.dir/tide/src/tide_mod.F90.o
+/usr/bin/ranlib libtide.a

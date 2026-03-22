@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(TIDE LANGUAGES CXX Fortran VERSION 0.1)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
 # Options
 option(WERROR "add the -Werror flag to compiler" OFF)
 
@@ -16,7 +18,11 @@ else()
 endif()
 
 find_package(ESMF REQUIRED)
-find_package(PIO REQUIRED COMPONENT C Fortran PATHS ${PIO_PATH})
+set(PIO_C_LIBRARY "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib/libpioc.so")
+set(PIO_C_INCLUDE_DIR "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/include")
+set(PIO_Fortran_LIBRARY "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib/libpiof.so")
+set(PIO_Fortran_INCLUDE_DIR "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/include")
+find_package(PIO REQUIRED COMPONENTS C Fortran)
 find_package(MPI REQUIRED)
 
 # yaml-cpp (Assuming it's available or can be fetched)
@@ -42,8 +48,25 @@ add_library(tide
 target_include_directories(tide PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tide/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/share>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/share>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/streams>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/streams>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dshr>
+)
+
+target_include_directories(tide PRIVATE
+  ${ESMF_F90COMPILEPATHS}
+  ${PIO_Fortran_INCLUDE_DIR}
+)
+
+add_dependencies(dshr cdeps_share streams)
+add_dependencies(streams cdeps_share)
+add_dependencies(tide dshr streams)
+
+link_directories(
+  /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/esmf-8.8.0-ms7pardr7fgwhdnp6mqgtw22qgcfewny/lib
+  /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib
+  /opt/views/view/lib
 )
 
 target_link_libraries(tide PUBLIC
@@ -51,16 +74,24 @@ target_link_libraries(tide PUBLIC
   streams
   dshr
   yaml-cpp
-  ESMF::ESMF
-  PIO::piofortran
+  ${ESMF_F90ESMFLINKLIBS}
+  ${PIO_Fortran_LIBRARIES}
+  ${MPI_Fortran_LIBRARIES}
 )
 
 # Testing
 enable_testing()
 add_executable(test_tide tide/tests/test_tide.F90)
-target_link_libraries(test_tide PRIVATE tide)
+target_include_directories(test_tide PRIVATE
+  ${ESMF_F90COMPILEPATHS}
+)
+target_link_libraries(test_tide PRIVATE tide
+  ${ESMF_F90ESMFLINKLIBS}
+  ${PIO_Fortran_LIBRARIES}
+  ${MPI_Fortran_LIBRARIES}
+)
 add_test(NAME tide_api_test COMMAND test_tide)
 
 # Install rules
-install(TARGETS tide EXPORT tide DESTINATION lib)
+install(TARGETS tide cdeps_share streams dshr yaml-cpp EXPORT tide DESTINATION lib)
 install(EXPORT tide DESTINATION lib/cmake)

@@ -1,0 +1,19 @@
+Start testing: Mar 22 17:59 UTC
+----------------------------------------------------------
+1/1 Testing: tide_api_test
+1/1 Test: tide_api_test
+Command: "/tide/build/test_tide"
+Directory: /tide/build
+"tide_api_test" start time: Mar 22 17:59 UTC
+Output:
+----------------------------------------------------------
+ TIDE API structure verified.
+<end of output>
+Test time =   0.11 sec
+----------------------------------------------------------
+Test Passed.
+"tide_api_test" end time: Mar 22 17:59 UTC
+"tide_api_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Mar 22 17:59 UTC
