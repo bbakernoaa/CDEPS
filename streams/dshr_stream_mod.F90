@@ -1256,7 +1256,16 @@ contains
        rcode = pio_openfile(strm%pio_subsystem, strm%file(k)%fileid, strm%pio_iotype, filename, pio_nowrite)
     endif
 
+    ! Try to find time variable
+    call pio_seterrorhandling(strm%file(k)%fileid, PIO_BCAST_ERROR, old_handle)
     rCode = pio_inq_varid(strm%file(k)%fileid, 'time', vid)
+    if (rCode /= PIO_NOERR) rCode = pio_inq_varid(strm%file(k)%fileid, 'nt', vid)
+    call pio_seterrorhandling(strm%file(k)%fileid, old_handle)
+    if (rCode /= PIO_NOERR) then
+       write(strm%logunit,*) trim(subname)//" ERROR: could not find time variable in "//trim(filename)
+       call shr_sys_abort(trim(subname)//" ERROR: could not find time variable")
+    endif
+
     rCode = pio_inquire_variable(strm%file(k)%fileid, vid, ndims=ndims)
     allocate(dids(ndims))
     rCode = pio_inquire_variable(strm%file(k)%fileid, vid, dimids=dids)
@@ -1546,9 +1555,14 @@ contains
        write(strm%logunit, '(a)') trim(subname)//' reading stream filename = '//trim(filename)
     endif
 
+    ! Try to find time variable
+    call pio_seterrorhandling(strm%file(k)%fileid, PIO_BCAST_ERROR, old_handle)
     rCode = pio_inq_varid(strm%file(k)%fileid, 'time', vid)
-    if(vid .lt. 0) then
-       call shr_sys_abort(subName//"ERROR: time variable id incorrect")
+    if (rCode /= PIO_NOERR) rCode = pio_inq_varid(strm%file(k)%fileid, 'nt', vid)
+    call pio_seterrorhandling(strm%file(k)%fileid, old_handle)
+    if (rCode /= PIO_NOERR) then
+       write(strm%logunit,*) trim(subname)//" ERROR: could not find time variable in "//trim(filename)
+       call shr_sys_abort(trim(subname)//" ERROR: could not find time variable")
     endif
     call pio_seterrorhandling(strm%file(k)%fileid, PIO_BCAST_ERROR, old_handle)
     rCode = pio_inq_att(strm%file(k)%fileid, vid, 'calendar', len=attlen)

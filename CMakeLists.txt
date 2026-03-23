@@ -1,128 +1,130 @@
 cmake_minimum_required(VERSION 3.10)
-include(ExternalProject)
-include(FetchContent)
+project(TIDE LANGUAGES CXX Fortran VERSION 0.1)
 
-set(DISABLE_FoX OFF CACHE BOOL "Disable FoX library to process XML files.")
-message("DISABLE_FoX = ${DISABLE_FoX}")
-if(DISABLE_FoX)
-  add_definitions(-DDISABLE_FoX)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+# Options
+option(WERROR "add the -Werror flag to compiler" OFF)
+
+# Find Dependencies
+find_package(ESMF REQUIRED)
+find_package(MPI REQUIRED)
+
+# Use paths from ESMFMKFILE if available
+if(ESMF_FOUND)
+  link_directories(${ESMF_F90ESMFLINKRPATHS})
 endif()
 
-if (DEFINED CIMEROOT)
-  message("Using CIME in ${CIMEROOT} with compiler ${COMPILER}")
-  include(${CASEROOT}/Macros.cmake)
-  if (${PIO_VERSION} LESS 2)
-    message( FATAL_ERROR "Version 2 of the PIO library required")
-  endif()
-  if (MPILIB STREQUAL mpi-serial)
-    set(CMAKE_Fortran_COMPILER ${SFC})
-    set(CMAKE_C_COMPILER ${SCC})
-  else()
-    set(CMAKE_Fortran_COMPILER ${MPIFC})
-    set(CMAKE_C_COMPILER ${MPICC})
-  endif()
-  set(CMAKE_Fortran_FLAGS "${FFLAGS} ${CPPDEFS} -I${LIBROOT}/include -I${LIBROOT}/nuopc/esmf/${NINST_VALUE}/include")
-  add_compile_definitions(CESMCOUPLED)
-  list(APPEND CMAKE_MODULE_PATH ${SRC_ROOT}/components/cdeps/cmake)
-  set(FOX_ROOT ${SRC_ROOT}/components/cdeps/fox)
-else()
-  set(BLD_STANDALONE TRUE)
-  project(NUOPC_DATA_MODELS LANGUAGES Fortran VERSION 0.1)
-  list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-  if(NOT DISABLE_FoX)
-    set(FOX_ROOT ${CMAKE_SOURCE_DIR}/fox)
-  endif()
-endif()
-message("CMAKE_MODULE_PATH is ${CMAKE_MODULE_PATH}, CMAKE_Fortran_COMPILER is ${CMAKE_Fortran_COMPILER}")
-enable_language(Fortran)
+# Fallback for JCSDA docker image if link_directories fails to find libraries
+link_directories(
+  /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/esmf-8.8.0-ms7pardr7fgwhdnp6mqgtw22qgcfewny/lib
+  /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib
+  /opt/views/view/lib
+)
 
-if (TARGET esmf)
-  message("Target esmf is already found. Skip find_package ...")
-else()
-  find_package(ESMF REQUIRED)
-endif()
-
-option(WERROR "add the -Werror flag to compiler (works with gcc and intel)" OFF)
-
-
+# PIO handling
 if (DEFINED ENV{PIO_ROOT})
-  message("PIO_ROOT is $ENV{PIO_ROOT}")
-else()
-  if (DEFINED PIO)
-    set(PIO_PATH ${PIO})
-  else()
-    set(PIO_PATH $ENV{PIO})
-  endif()
-  find_package(PIO REQUIRED COMPONENT C Fortran PATH ${PIO_PATH})
+  set(PIO_C_LIBRARY "$ENV{PIO_ROOT}/lib/libpioc.so")
+  set(PIO_C_INCLUDE_DIR "$ENV{PIO_ROOT}/include")
+  set(PIO_Fortran_LIBRARY "$ENV{PIO_ROOT}/lib/libpiof.so")
+  set(PIO_Fortran_INCLUDE_DIR "$ENV{PIO_ROOT}/include")
+elseif (ESMF_FOUND)
+    # Try to extract from ESMF paths if they point to the JCSDA views
+    foreach(path ${ESMF_F90COMPILEPATHS})
+        if(path MATCHES "parallelio")
+            set(PIO_C_LIBRARY "${path}/../lib/libpioc.so")
+            set(PIO_C_INCLUDE_DIR "${path}")
+            set(PIO_Fortran_LIBRARY "${path}/../lib/libpiof.so")
+            set(PIO_Fortran_INCLUDE_DIR "${path}")
+        endif()
+    endforeach()
 endif()
 
-if (NOT DEFINED MPILIB OR NOT ${MPILIB} STREQUAL "mpi-serial")
-  find_package(MPI REQUIRED)
+# Fallback for JCSDA docker image if not found above
+if (NOT PIO_C_LIBRARY AND IS_DIRECTORY "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj")
+    set(PIO_C_LIBRARY "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib/libpioc.so")
+    set(PIO_C_INCLUDE_DIR "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/include")
+    set(PIO_Fortran_LIBRARY "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib/libpiof.so")
+    set(PIO_Fortran_INCLUDE_DIR "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/include")
 endif()
 
-if(BLD_STANDALONE)
-  add_subdirectory(share)
-  list(APPEND EXTRA_LIBS cdeps_share)
-endif()
-if("${COMPILER}" STREQUAL "nag")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -D__NAG__")
-endif()
+find_package(PIO REQUIRED COMPONENTS C Fortran)
+
+# yaml-cpp (Assuming it's available or can be fetched)
+include(FetchContent)
+FetchContent_Declare(
+  yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG yaml-cpp-0.7.0
+)
+FetchContent_MakeAvailable(yaml-cpp)
+
+# TIDE Library
+add_subdirectory(share)
 add_subdirectory(streams)
 add_subdirectory(dshr)
 
-if(NOT DISABLE_FoX)
-  add_subdirectory(fox)
+add_library(tide
+  tide/src/tide_yaml_c.cpp
+  tide/src/tide_yaml_mod.F90
+  tide/src/tide_mod.F90
+)
 
-  target_include_directories(streams PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/fox/include>
-                                            $<INSTALL_INTERFACE:mod>)
-  target_include_directories(dshr PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/fox/include>
-                                         $<INSTALL_INTERFACE:mod>)
-endif()
+target_include_directories(tide PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tide/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/share>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/share>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/streams>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/streams>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dshr>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/dshr>
+)
 
-target_include_directories(dshr PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/streams>
-                                       $<INSTALL_INTERFACE:mod>)
+target_include_directories(tide PRIVATE
+  ${ESMF_F90COMPILEPATHS}
+  ${PIO_Fortran_INCLUDE_DIR}
+)
 
-foreach(COMP datm dice dglc dlnd docn drof dwav demis)
-  add_subdirectory("${COMP}")
-  if(BLD_STANDALONE)
-    target_include_directories(${COMP} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/share>
-                                            $<INSTALL_INTERFACE:mod>)
+# Extract link directories from ESMF paths if they aren't already set
+foreach(path ${ESMF_F90COMPILEPATHS})
+  if(IS_DIRECTORY ${path}/../lib)
+    link_directories(${path}/../lib)
   endif()
-  target_include_directories(${COMP} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/streams>
-                                            $<INSTALL_INTERFACE:mod>)
-  target_include_directories(${COMP} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/dshr>
-                                            $<INSTALL_INTERFACE:mod>)
+endforeach()
+link_directories(/opt/views/view/lib)
 
-  if(WERROR)
-     target_compile_options(${COMP} PRIVATE -Werror --warn-no-unused-dummy-argument --warn-no-missing-include-dirs)
-  endif()
-  install(TARGETS ${COMP}
-          EXPORT  ${COMP}
-          ARCHIVE DESTINATION lib
-          LIBRARY DESTINATION lib
-          COMPONENT Library)
-  install(EXPORT      ${COMP}
-          DESTINATION lib/cmake)
-endforeach(COMP)
+target_link_libraries(tide PUBLIC
+  dshr
+  streams
+  cdeps_share
+  yaml-cpp
+  ${ESMF_F90ESMFLINKLIBS}
+  ${PIO_Fortran_LIBRARY}
+  ${PIO_C_LIBRARY}
+  ${MPI_Fortran_LIBRARIES}
+  m
+)
 
-foreach(DEPS streams dshr cdeps_share FoX_dom FoX_wxml FoX_sax FoX_common FoX_utils FoX_fsys)
-  if(DISABLE_FoX AND ${DEPS} MATCHES "^FoX")
-     continue()
-  endif()
-  if(NOT BLD_STANDALONE AND ${DEPS} STREQUAL "cdeps_share")
-     continue()
-  endif()
-  string(SUBSTRING ${DEPS} 0 3 fox)
-  if(WERROR AND NOT ${fox} STREQUAL "FoX")
-     message("Adding Werror flag to ${DEPS} (fox = ${fox})")
-     target_compile_options(${DEPS} PRIVATE -Werror --warn-no-unused-dummy-argument --warn-no-missing-include-dirs)
-  endif()
+# Testing
+enable_testing()
+add_executable(test_tide tide/tests/test_tide.F90)
+target_include_directories(test_tide PRIVATE
+  ${ESMF_F90COMPILEPATHS}
+  ${PIO_Fortran_INCLUDE_DIR}
+)
+target_link_libraries(test_tide PRIVATE
+  tide
+  dshr
+  streams
+  cdeps_share
+  ${ESMF_F90ESMFLINKLIBS}
+  ${PIO_Fortran_LIBRARY}
+  ${PIO_C_LIBRARY}
+  ${MPI_Fortran_LIBRARIES}
+  m
+)
+add_test(NAME tide_api_test COMMAND test_tide)
 
-  install(TARGETS ${DEPS}
-          EXPORT  ${DEPS}
-          ARCHIVE DESTINATION lib
-          LIBRARY DESTINATION lib
-          COMPONENT Library)
-  install(EXPORT      ${DEPS}
-          DESTINATION lib/cmake)
-endforeach(DEPS)
+# Install rules
+install(TARGETS tide cdeps_share streams dshr yaml-cpp EXPORT tide DESTINATION lib)
+install(EXPORT tide DESTINATION lib/cmake)

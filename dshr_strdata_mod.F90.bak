@@ -3,33 +3,26 @@ module dshr_strdata_mod
   ! holds data and methods to advance data models
   ! Obtain the model domain and the stream domain for each stream
 
-  use ESMF             , only : ESMF_Mesh, ESMF_RouteHandle, ESMF_Field, ESMF_FieldBundle, &
-                             ESMF_Clock, ESMF_VM, ESMF_VMGet, ESMF_VMGetCurrent, &
-                             ESMF_DistGrid, ESMF_SUCCESS, ESMF_MeshGet, ESMF_DistGridGet, &
-                             ESMF_VMBroadCast, ESMF_MeshIsCreated, ESMF_MeshCreate, &
-                             ESMF_CALKIND_NOLEAP, ESMF_CALKIND_GREGORIAN, &
-                             ESMF_CalKind_Flag, ESMF_Time, ESMF_TimeInterval, &
-                             ESMF_TimeIntervalGet, ESMF_TYPEKIND_R8, ESMF_FieldCreate, &
-                             ESMF_FILEFORMAT_ESMFMESH, ESMF_FieldBundleCreate, &
-                             ESMF_MESHLOC_ELEMENT, ESMF_FieldBundleAdd, &
-                             ESMF_POLEMETHOD_ALLAVG, ESMF_EXTRAPMETHOD_NEAREST_STOD, &
-                             ESMF_REGRIDMETHOD_BILINEAR, ESMF_REGRIDMETHOD_NEAREST_STOD, &
-                             ESMF_REGRIDMETHOD_CONSERVE, ESMF_NORMTYPE_FRACAREA, ESMF_NORMTYPE_DSTAREA, &
-                             ESMF_ClockGet, operator(-), operator(==), &
-                             ESMF_Grid, ESMF_GridCreateNoPeriDimUfrm, ESMF_GridGetCoord, ESMF_GridGet, &
-                             ESMF_INDEX_GLOBAL, ESMF_COORDSYS_SPH_DEG, &
-                             ESMF_FieldReGridStore, ESMF_FieldRedistStore, ESMF_UNMAPPEDACTION_IGNORE, &
-                             ESMF_TERMORDER_SRCSEQ, ESMF_FieldRegrid, ESMF_FieldFill, ESMF_FieldIsCreated, &
-                             ESMF_REGION_TOTAL, ESMF_FieldGet, ESMF_TraceRegionExit, ESMF_TraceRegionEnter, &
-                             ESMF_LOGMSG_INFO, ESMF_LogWrite
-  use pio              , only : file_desc_t, iosystem_desc_t, io_desc_t, var_desc_t, &
-                             pio_openfile, pio_closefile, pio_nowrite, &
-                             pio_seterrorhandling, pio_initdecomp, pio_freedecomp, &
-                             pio_inquire, pio_inq_varid, pio_inq_varndims, pio_inq_vardimid, pio_inquire_variable, &
-                             pio_inq_dimlen, pio_inq_vartype, pio_inq_dimname, pio_inq_dimid, &
-                             pio_double, pio_real, pio_int, pio_offset_kind, pio_get_var, &
-                             pio_read_darray, pio_setframe, pio_fill_double, pio_get_att, pio_inq_att, &
-                             PIO_BCAST_ERROR, PIO_RETURN_ERROR, PIO_NOERR, PIO_INTERNAL_ERROR, PIO_SHORT
+  use ESMF             , only : ESMF_Mesh, ESMF_RouteHandle, ESMF_Field, ESMF_FieldBundle
+  use ESMF             , only : ESMF_Clock, ESMF_VM, ESMF_VMGet, ESMF_VMGetCurrent
+  use ESMF             , only : ESMF_DistGrid, ESMF_SUCCESS, ESMF_MeshGet, ESMF_DistGridGet
+  use ESMF             , only : ESMF_VMBroadCast, ESMF_MeshIsCreated, ESMF_MeshCreate
+  use ESMF             , only : ESMF_CALKIND_NOLEAP, ESMF_CALKIND_GREGORIAN
+  use ESMF             , only : ESMF_CalKind_Flag, ESMF_Time, ESMF_TimeInterval
+  use ESMF             , only : ESMF_TimeIntervalGet, ESMF_TYPEKIND_R8, ESMF_FieldCreate
+  use ESMF             , only : ESMF_FILEFORMAT_ESMFMESH, ESMF_FieldCreate
+  use ESMF             , only : ESMF_FieldBundleCreate, ESMF_MESHLOC_ELEMENT, ESMF_FieldBundleAdd
+  use ESMF             , only : ESMF_POLEMETHOD_ALLAVG, ESMF_EXTRAPMETHOD_NEAREST_STOD
+  use ESMF             , only : ESMF_REGRIDMETHOD_BILINEAR, ESMF_REGRIDMETHOD_NEAREST_STOD
+  use ESMF             , only : ESMF_REGRIDMETHOD_CONSERVE, ESMF_NORMTYPE_FRACAREA, ESMF_NORMTYPE_DSTAREA
+  use ESMF             , only : ESMF_ClockGet, operator(-), operator(==), ESMF_CALKIND_NOLEAP
+  use ESMF             , only : ESMF_Grid, ESMF_GridCreateNoPeriDimUfrm, ESMF_GridGetCoord
+  use ESMF             , only : ESMF_STAGGERLOC_CENTER, ESMF_STAGGERLOC_CORNER
+  use ESMF             , only : ESMF_COORDSYS_SPH_DEG
+  use ESMF             , only : ESMF_FieldReGridStore, ESMF_FieldRedistStore, ESMF_UNMAPPEDACTION_IGNORE
+  use ESMF             , only : ESMF_TERMORDER_SRCSEQ, ESMF_FieldRegrid, ESMF_FieldFill, ESMF_FieldIsCreated
+  use ESMF             , only : ESMF_REGION_TOTAL, ESMF_FieldGet, ESMF_TraceRegionExit, ESMF_TraceRegionEnter
+  use ESMF             , only : ESMF_LOGMSG_INFO, ESMF_LogWrite
   use shr_kind_mod     , only : r8=>shr_kind_r8, r4=>shr_kind_r4, i2=>shr_kind_I2
   use shr_kind_mod     , only : cs=>shr_kind_cs, cl=>shr_kind_cl, cxx=>shr_kind_cxx, cx=>shr_kind_cx
   use shr_sys_mod      , only : shr_sys_abort
@@ -55,6 +48,14 @@ module dshr_strdata_mod
   use dshr_methods_mod , only : dshr_fldbun_getfldptr, dshr_fldbun_getfieldN, dshr_fldbun_fldchk, chkerr
   use dshr_methods_mod , only : dshr_fldbun_diagnose, dshr_fldbun_regrid, dshr_field_getfldptr
 
+  use pio              , only : file_desc_t, iosystem_desc_t, io_desc_t, var_desc_t
+  use pio              , only : pio_openfile, pio_closefile, pio_nowrite
+  use pio              , only : pio_seterrorhandling, pio_initdecomp, pio_freedecomp
+  use pio              , only : pio_inquire, pio_inq_varid, pio_inq_varndims, pio_inq_vardimid
+  use pio              , only : pio_inq_dimlen, pio_inq_vartype, pio_inq_dimname, pio_inq_dimid
+  use pio              , only : pio_double, pio_real, pio_int, pio_offset_kind, pio_get_var
+  use pio              , only : pio_read_darray, pio_setframe, pio_fill_double, pio_get_att, pio_inq_att
+  use pio              , only : PIO_BCAST_ERROR, PIO_RETURN_ERROR, PIO_NOERR, PIO_INTERNAL_ERROR, PIO_SHORT
 
   implicit none
   private
@@ -72,7 +73,7 @@ module dshr_strdata_mod
 
   private :: shr_strdata_init_model_domain
   private :: shr_strdata_get_stream_nlev
-  private :: shr_strdata_readLBUB, shr_strdata_create_mesh_from_file
+  private :: shr_strdata_readLBUB
   private :: shr_strdata_create_mesh_from_file
 
   interface shr_strdata_get_stream_pointer
@@ -2195,8 +2196,8 @@ contains
     end do
   end subroutine shr_strdata_get_stream_pointer_2d
 
-
   subroutine shr_strdata_create_mesh_from_file(sdat, ns, filename, mesh, rc)
+    use ESMF, only : ESMF_GridGet
     type(shr_strdata_type) , intent(inout) :: sdat
     integer                , intent(in)    :: ns
     character(len=*)       , intent(in)    :: filename
@@ -2219,7 +2220,6 @@ contains
     integer, allocatable    :: dimids(:)
     integer                 :: ndims
     integer                 :: is(2), ie(2)
-    real(r8)                :: minCoord(2), maxCoord(2)
 
     rc = ESMF_SUCCESS
     call ESMF_VMGetCurrent(vm, rc=rc)
@@ -2231,32 +2231,34 @@ contains
     lat_name = 'lat'
     call pio_seterrorhandling(pioid, PIO_BCAST_ERROR, old_handle)
     rcode = pio_inq_varid(pioid, 'lat', varid_lat)
-    if (rcode /= PIO_NOERR) then
-       rcode = pio_inq_varid(pioid, 'latitude', varid_lat)
-       if (rcode == PIO_NOERR) lat_name = 'latitude'
-    endif
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'latitude', varid_lat)
+    if (rcode == PIO_NOERR) call pio_inquire_variable(pioid, varid_lat, name=lat_name)
 
     lon_name = 'lon'
     rcode = pio_inq_varid(pioid, 'lon', varid_lon)
-    if (rcode /= PIO_NOERR) then
-       rcode = pio_inq_varid(pioid, 'longitude', varid_lon)
-       if (rcode == PIO_NOERR) lon_name = 'longitude'
-    endif
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'longitude', varid_lon)
+    if (rcode == PIO_NOERR) call pio_inquire_variable(pioid, varid_lon, name=lon_name)
     call pio_seterrorhandling(pioid, old_handle)
 
     ! Find dimension IDs for lat/lon
-    call pio_inq_varndims(pioid, varid_lat, ndims)
-    allocate(dimids(ndims))
-    call pio_inq_vardimid(pioid, varid_lat, dimids)
-    dimid_lat = dimids(1)
-    deallocate(dimids)
+    rcode = pio_inq_dimid(pioid, trim(lat_name), dimid_lat)
+    if (rcode /= PIO_NOERR) then
+       call pio_inq_varndims(pioid, varid_lat, ndims)
+       allocate(dimids(ndims))
+       call pio_inq_vardimid(pioid, varid_lat, dimids)
+       dimid_lat = dimids(1)
+       deallocate(dimids)
+    endif
     rcode = pio_inq_dimlen(pioid, dimid_lat, nlat)
 
-    call pio_inq_varndims(pioid, varid_lon, ndims)
-    allocate(dimids(ndims))
-    call pio_inq_vardimid(pioid, varid_lon, dimids)
-    dimid_lon = dimids(1)
-    deallocate(dimids)
+    rcode = pio_inq_dimid(pioid, trim(lon_name), dimid_lon)
+    if (rcode /= PIO_NOERR) then
+       call pio_inq_varndims(pioid, varid_lon, ndims)
+       allocate(dimids(ndims))
+       call pio_inq_vardimid(pioid, varid_lon, dimids)
+       dimid_lon = dimids(1)
+       deallocate(dimids)
+    endif
     rcode = pio_inq_dimlen(pioid, dimid_lon, nlon)
 
     allocate(lat(nlat), lon(nlon))
@@ -2266,13 +2268,9 @@ contains
 
     ! Create Grid from lat/lon
     maxIndex = (/nlon, nlat/)
-    minCoord = (/ minval(lon), minval(lat) /)
-    maxCoord = (/ maxval(lon), maxval(lat) /)
-
     grid = ESMF_GridCreateNoPeriDimUfrm(maxIndex=maxIndex, &
-           minCornerCoord=minCoord, maxCornerCoord=maxCoord, &
-           staggerloclist=(/ESMF_STAGGERLOC_CENTER/), &
-           indexflag=ESMF_INDEX_GLOBAL, rc=rc)
+           coordSys=ESMF_COORDSYS_SPH_DEG, &
+           staggerloclist=(/ESMF_STAGGERLOC_CENTER/), rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
     ! Set Grid coordinates
@@ -2294,6 +2292,7 @@ contains
     deallocate(lat, lon)
   end subroutine shr_strdata_create_mesh_from_file
 
+  !===============================================================================
   subroutine shr_cal_getdayofweek(year, month, day, dow)
     integer, intent(in)  :: year, month, day
     integer, intent(out) :: dow
@@ -2308,5 +2307,101 @@ contains
     ! Returns 0=Sunday, 1=Monday, ..., 6=Saturday
     dow = modulo(day + y + y/4 - y/100 + y/400 + (31*m)/12, 7)
   end subroutine shr_cal_getdayofweek
+
+  subroutine shr_strdata_create_mesh_from_file(sdat, ns, filename, mesh, rc)
+    use ESMF, only : ESMF_GridGet
+    type(shr_strdata_type) , intent(inout) :: sdat
+    integer                , intent(in)    :: ns
+    character(len=*)       , intent(in)    :: filename
+    type(ESMF_Mesh)        , intent(out)   :: mesh
+    integer                , intent(out)   :: rc
+
+    type(ESMF_VM)           :: vm
+    type(file_desc_t)       :: pioid
+    type(var_desc_t)        :: varid_lat, varid_lon
+    integer                 :: dimid_lat, dimid_lon
+    integer                 :: nlat, nlon
+    real(r8), allocatable   :: lat(:), lon(:)
+    integer                 :: rcode
+    type(ESMF_Grid)         :: grid
+    integer                 :: maxIndex(2)
+    character(CS)           :: lat_name, lon_name
+    integer                 :: old_handle
+    real(r8), pointer       :: grid_lon(:,:), grid_lat(:,:)
+    integer                 :: i, j
+    integer, allocatable    :: dimids(:)
+    integer                 :: ndims
+    integer                 :: is(2), ie(2)
+
+    rc = ESMF_SUCCESS
+    call ESMF_VMGetCurrent(vm, rc=rc)
+
+    ! Open the file
+    rcode = pio_openfile(sdat%pio_subsystem, pioid, sdat%io_type, trim(filename), pio_nowrite)
+
+    ! Try to find lat/lon variable names
+    lat_name = 'lat'
+    call pio_seterrorhandling(pioid, PIO_BCAST_ERROR, old_handle)
+    rcode = pio_inq_varid(pioid, 'lat', varid_lat)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'latitude', varid_lat)
+    if (rcode == PIO_NOERR) call pio_inquire_variable(pioid, varid_lat, name=lat_name)
+
+    lon_name = 'lon'
+    rcode = pio_inq_varid(pioid, 'lon', varid_lon)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'longitude', varid_lon)
+    if (rcode == PIO_NOERR) call pio_inquire_variable(pioid, varid_lon, name=lon_name)
+    call pio_seterrorhandling(pioid, old_handle)
+
+    ! Find dimension IDs for lat/lon
+    rcode = pio_inq_dimid(pioid, trim(lat_name), dimid_lat)
+    if (rcode /= PIO_NOERR) then
+       call pio_inq_varndims(pioid, varid_lat, ndims)
+       allocate(dimids(ndims))
+       call pio_inq_vardimid(pioid, varid_lat, dimids)
+       dimid_lat = dimids(1)
+       deallocate(dimids)
+    endif
+    rcode = pio_inq_dimlen(pioid, dimid_lat, nlat)
+
+    rcode = pio_inq_dimid(pioid, trim(lon_name), dimid_lon)
+    if (rcode /= PIO_NOERR) then
+       call pio_inq_varndims(pioid, varid_lon, ndims)
+       allocate(dimids(ndims))
+       call pio_inq_vardimid(pioid, varid_lon, dimids)
+       dimid_lon = dimids(1)
+       deallocate(dimids)
+    endif
+    rcode = pio_inq_dimlen(pioid, dimid_lon, nlon)
+
+    allocate(lat(nlat), lon(nlon))
+    rcode = pio_get_var(pioid, varid_lat, lat)
+    rcode = pio_get_var(pioid, varid_lon, lon)
+    call pio_closefile(pioid)
+
+    ! Create Grid from lat/lon
+    maxIndex = (/nlon, nlat/)
+    grid = ESMF_GridCreateNoPeriDimUfrm(maxIndex=maxIndex, &
+           coordSys=ESMF_COORDSYS_SPH_DEG, &
+           staggerloclist=(/ESMF_STAGGERLOC_CENTER/), rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    ! Set Grid coordinates
+    call ESMF_GridGetCoord(grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_CENTER, farrayPtr=grid_lon, rc=rc)
+    call ESMF_GridGetCoord(grid, coordDim=2, staggerloc=ESMF_STAGGERLOC_CENTER, farrayPtr=grid_lat, rc=rc)
+    call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, localDe=0, exclusiveLBound=is, exclusiveUBound=ie, rc=rc)
+
+    do j = 1, ie(2)-is(2)+1
+       do i = 1, ie(1)-is(1)+1
+          grid_lon(i,j) = lon(i + is(1) - 1)
+          grid_lat(i,j) = lat(j + is(2) - 1)
+       end do
+    end do
+
+    ! Convert Grid to Mesh
+    mesh = ESMF_MeshCreate(grid, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    deallocate(lat, lon)
+  end subroutine shr_strdata_create_mesh_from_file
 
 end module dshr_strdata_mod
