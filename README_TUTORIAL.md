@@ -50,12 +50,12 @@ end if
 
 ## Example YAML Configuration (`emissions_config.yaml`)
 
-TIDE uses a clean YAML schema to define data streams.
+TIDE uses a clean YAML schema to define data streams. For COARDS NetCDF files, you can set `mesh_file: auto` to automatically discover the grid from `lat`/`lon` variables.
 
 ```yaml
 streams:
   - name: anthropogenic_emissions
-    mesh_file: "input/emission_mesh.nc"
+    mesh_file: "auto"            # Or path to SCRIP/ESMF mesh file
     tax_mode: "cycle"            # Options: cycle, extend, limit
     time_interp: "linear"        # Options: linear, lower, upper, nearest
     map_algo: "bilinear"         # Options: bilinear, nn, redist, consf, consd

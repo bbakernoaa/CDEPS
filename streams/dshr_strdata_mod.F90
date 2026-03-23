@@ -16,6 +16,9 @@ module dshr_strdata_mod
   use ESMF             , only : ESMF_REGRIDMETHOD_BILINEAR, ESMF_REGRIDMETHOD_NEAREST_STOD
   use ESMF             , only : ESMF_REGRIDMETHOD_CONSERVE, ESMF_NORMTYPE_FRACAREA, ESMF_NORMTYPE_DSTAREA
   use ESMF             , only : ESMF_ClockGet, operator(-), operator(==), ESMF_CALKIND_NOLEAP
+  use ESMF             , only : ESMF_Grid, ESMF_GridCreateNoPeriDimUfrm, ESMF_GridGetCoord
+  use ESMF             , only : ESMF_STAGGERLOC_CENTER, ESMF_STAGGERLOC_CORNER
+  use ESMF             , only : ESMF_COORDSYS_SPH_DEG
   use ESMF             , only : ESMF_FieldReGridStore, ESMF_FieldRedistStore, ESMF_UNMAPPEDACTION_IGNORE
   use ESMF             , only : ESMF_TERMORDER_SRCSEQ, ESMF_FieldRegrid, ESMF_FieldFill, ESMF_FieldIsCreated
   use ESMF             , only : ESMF_REGION_TOTAL, ESMF_FieldGet, ESMF_TraceRegionExit, ESMF_TraceRegionEnter
@@ -71,6 +74,7 @@ module dshr_strdata_mod
   private :: shr_strdata_init_model_domain
   private :: shr_strdata_get_stream_nlev
   private :: shr_strdata_readLBUB
+  private :: shr_strdata_create_mesh_from_file
 
   interface shr_strdata_get_stream_pointer
      module procedure shr_strdata_get_stream_pointer_1d
@@ -435,8 +439,15 @@ contains
        ! We do not yet have mask information, but we are required to set it here and change it
        ! later.
        !
-       if(filename /= 'none') then
+       if(filename /= 'none' .and. filename /= 'auto') then
           stream_mesh = ESMF_MeshCreate(trim(filename), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
+          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       elseif (filename == 'auto') then
+          if (sdat%mainproc) then
+             call shr_stream_getData(sdat%stream(ns), 1, fileName)
+          end if
+          call ESMF_VMBroadCast(vm, fileName, CX, 0, rc=rc)
+          call shr_strdata_create_mesh_from_file(sdat, ns, fileName, stream_mesh, rc=rc)
           if (ChkErr(rc,__LINE__,u_FILE_u)) return
        endif
 
@@ -1998,13 +2009,20 @@ contains
     end do
 
     ! determine compdof for stream
-    call ESMF_MeshGet(per_stream%stream_mesh, elementdistGrid=distGrid, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    call ESMF_DistGridGet(distGrid, localDe=0, elementCount=lsize, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    allocate(compdof(lsize))
-    call ESMF_DistGridGet(distGrid, localDe=0, seqIndexList=compdof, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    if (ESMF_MeshIsCreated(per_stream%stream_mesh)) then
+       call ESMF_MeshGet(per_stream%stream_mesh, elementdistGrid=distGrid, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       call ESMF_DistGridGet(distGrid, localDe=0, elementCount=lsize, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+       allocate(compdof(lsize))
+       call ESMF_DistGridGet(distGrid, localDe=0, seqIndexList=compdof, rc=rc)
+       if (ChkErr(rc,__LINE__,u_FILE_u)) return
+    else
+       ! For ungridded/single point data
+       lsize = 1
+       allocate(compdof(lsize))
+       compdof(1) = 1
+    endif
     if (stream_nlev > 1) then
        allocate(compdof3d(stream_nlev*lsize))
        ! Assume that first 2 dimensions correspond to the compdof
@@ -2029,6 +2047,7 @@ contains
              write(sdat%stream(1)%logunit,F03) 'setting iodesc for : '//trim(fldname)// &
                   ' with dimlens(1) = ',dimlens(1),' and the variable has a time dimension '
           end if
+          ! Handle COARDS 1D spatial + 1D time (if unstructured)
           call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1)/), compdof, &
                per_stream%stream_pio_iodesc)
        else
@@ -2055,6 +2074,7 @@ contains
                   ' with dimlens(1), dimlens(2) = ',dimlens(1),dimlens(2),&
                   ' variable as time dimension '//trim(dimname)
           end if
+          ! Handle COARDS 2D spatial + 1D time
           call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1),dimlens(2)/), compdof, &
                per_stream%stream_pio_iodesc)
        end if
@@ -2068,6 +2088,15 @@ contains
                   ' variable has time dimension '
           end if
           call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1),dimlens(2),dimlens(3)/), compdof3d, &
+               per_stream%stream_pio_iodesc)
+       else if (trim(dimname) == 'time' .or. trim(dimname) == 'nt') then
+          if (sdat%mainproc) then
+             write(sdat%stream(1)%logunit,F02) 'setting iodesc for : '//trim(fldname)// &
+                  ' with dimlens(1), dimlens(2), dimlens(3) = ',dimlens(1),dimlens(2),dimlens(3),&
+                  ' variable has time dimension '
+          end if
+          ! Handle COARDS 3D spatial (lev, lat, lon) + 1D time
+          call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1),dimlens(2),dimlens(3)/), compdof, &
                per_stream%stream_pio_iodesc)
        else
           write(6,*)'ERROR: dimlens= ',dimlens
@@ -2167,6 +2196,102 @@ contains
     end do
   end subroutine shr_strdata_get_stream_pointer_2d
 
+  subroutine shr_strdata_create_mesh_from_file(sdat, ns, filename, mesh, rc)
+    use ESMF, only : ESMF_GridGet
+    type(shr_strdata_type) , intent(inout) :: sdat
+    integer                , intent(in)    :: ns
+    character(len=*)       , intent(in)    :: filename
+    type(ESMF_Mesh)        , intent(out)   :: mesh
+    integer                , intent(out)   :: rc
+
+    type(ESMF_VM)           :: vm
+    type(file_desc_t)       :: pioid
+    type(var_desc_t)        :: varid_lat, varid_lon
+    integer                 :: dimid_lat, dimid_lon
+    integer                 :: nlat, nlon
+    real(r8), allocatable   :: lat(:), lon(:)
+    integer                 :: rcode
+    type(ESMF_Grid)         :: grid
+    integer                 :: maxIndex(2)
+    character(CS)           :: lat_name, lon_name
+    integer                 :: old_handle
+    real(r8), pointer       :: grid_lon(:,:), grid_lat(:,:)
+    integer                 :: i, j
+    integer, allocatable    :: dimids(:)
+    integer                 :: ndims
+    integer                 :: is(2), ie(2)
+
+    rc = ESMF_SUCCESS
+    call ESMF_VMGetCurrent(vm, rc=rc)
+
+    ! Open the file
+    rcode = pio_openfile(sdat%pio_subsystem, pioid, sdat%io_type, trim(filename), pio_nowrite)
+
+    ! Try to find lat/lon variable names
+    lat_name = 'lat'
+    call pio_seterrorhandling(pioid, PIO_BCAST_ERROR, old_handle)
+    rcode = pio_inq_varid(pioid, 'lat', varid_lat)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'latitude', varid_lat)
+    if (rcode == PIO_NOERR) call pio_inquire_variable(pioid, varid_lat, name=lat_name)
+
+    lon_name = 'lon'
+    rcode = pio_inq_varid(pioid, 'lon', varid_lon)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'longitude', varid_lon)
+    if (rcode == PIO_NOERR) call pio_inquire_variable(pioid, varid_lon, name=lon_name)
+    call pio_seterrorhandling(pioid, old_handle)
+
+    ! Find dimension IDs for lat/lon
+    rcode = pio_inq_dimid(pioid, trim(lat_name), dimid_lat)
+    if (rcode /= PIO_NOERR) then
+       call pio_inq_varndims(pioid, varid_lat, ndims)
+       allocate(dimids(ndims))
+       call pio_inq_vardimid(pioid, varid_lat, dimids)
+       dimid_lat = dimids(1)
+       deallocate(dimids)
+    endif
+    rcode = pio_inq_dimlen(pioid, dimid_lat, nlat)
+
+    rcode = pio_inq_dimid(pioid, trim(lon_name), dimid_lon)
+    if (rcode /= PIO_NOERR) then
+       call pio_inq_varndims(pioid, varid_lon, ndims)
+       allocate(dimids(ndims))
+       call pio_inq_vardimid(pioid, varid_lon, dimids)
+       dimid_lon = dimids(1)
+       deallocate(dimids)
+    endif
+    rcode = pio_inq_dimlen(pioid, dimid_lon, nlon)
+
+    allocate(lat(nlat), lon(nlon))
+    rcode = pio_get_var(pioid, varid_lat, lat)
+    rcode = pio_get_var(pioid, varid_lon, lon)
+    call pio_closefile(pioid)
+
+    ! Create Grid from lat/lon
+    maxIndex = (/nlon, nlat/)
+    grid = ESMF_GridCreateNoPeriDimUfrm(maxIndex=maxIndex, &
+           coordSys=ESMF_COORDSYS_SPH_DEG, &
+           staggerloclist=(/ESMF_STAGGERLOC_CENTER/), rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    ! Set Grid coordinates
+    call ESMF_GridGetCoord(grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_CENTER, farrayPtr=grid_lon, rc=rc)
+    call ESMF_GridGetCoord(grid, coordDim=2, staggerloc=ESMF_STAGGERLOC_CENTER, farrayPtr=grid_lat, rc=rc)
+    call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, localDe=0, exclusiveLBound=is, exclusiveUBound=ie, rc=rc)
+
+    do j = 1, ie(2)-is(2)+1
+       do i = 1, ie(1)-is(1)+1
+          grid_lon(i,j) = lon(i + is(1) - 1)
+          grid_lat(i,j) = lat(j + is(2) - 1)
+       end do
+    end do
+
+    ! Convert Grid to Mesh
+    mesh = ESMF_MeshCreate(grid, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    deallocate(lat, lon)
+  end subroutine shr_strdata_create_mesh_from_file
+
   !===============================================================================
   subroutine shr_cal_getdayofweek(year, month, day, dow)
     integer, intent(in)  :: year, month, day
@@ -2182,5 +2307,101 @@ contains
     ! Returns 0=Sunday, 1=Monday, ..., 6=Saturday
     dow = modulo(day + y + y/4 - y/100 + y/400 + (31*m)/12, 7)
   end subroutine shr_cal_getdayofweek
+
+  subroutine shr_strdata_create_mesh_from_file(sdat, ns, filename, mesh, rc)
+    use ESMF, only : ESMF_GridGet
+    type(shr_strdata_type) , intent(inout) :: sdat
+    integer                , intent(in)    :: ns
+    character(len=*)       , intent(in)    :: filename
+    type(ESMF_Mesh)        , intent(out)   :: mesh
+    integer                , intent(out)   :: rc
+
+    type(ESMF_VM)           :: vm
+    type(file_desc_t)       :: pioid
+    type(var_desc_t)        :: varid_lat, varid_lon
+    integer                 :: dimid_lat, dimid_lon
+    integer                 :: nlat, nlon
+    real(r8), allocatable   :: lat(:), lon(:)
+    integer                 :: rcode
+    type(ESMF_Grid)         :: grid
+    integer                 :: maxIndex(2)
+    character(CS)           :: lat_name, lon_name
+    integer                 :: old_handle
+    real(r8), pointer       :: grid_lon(:,:), grid_lat(:,:)
+    integer                 :: i, j
+    integer, allocatable    :: dimids(:)
+    integer                 :: ndims
+    integer                 :: is(2), ie(2)
+
+    rc = ESMF_SUCCESS
+    call ESMF_VMGetCurrent(vm, rc=rc)
+
+    ! Open the file
+    rcode = pio_openfile(sdat%pio_subsystem, pioid, sdat%io_type, trim(filename), pio_nowrite)
+
+    ! Try to find lat/lon variable names
+    lat_name = 'lat'
+    call pio_seterrorhandling(pioid, PIO_BCAST_ERROR, old_handle)
+    rcode = pio_inq_varid(pioid, 'lat', varid_lat)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'latitude', varid_lat)
+    if (rcode == PIO_NOERR) call pio_inquire_variable(pioid, varid_lat, name=lat_name)
+
+    lon_name = 'lon'
+    rcode = pio_inq_varid(pioid, 'lon', varid_lon)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'longitude', varid_lon)
+    if (rcode == PIO_NOERR) call pio_inquire_variable(pioid, varid_lon, name=lon_name)
+    call pio_seterrorhandling(pioid, old_handle)
+
+    ! Find dimension IDs for lat/lon
+    rcode = pio_inq_dimid(pioid, trim(lat_name), dimid_lat)
+    if (rcode /= PIO_NOERR) then
+       call pio_inq_varndims(pioid, varid_lat, ndims)
+       allocate(dimids(ndims))
+       call pio_inq_vardimid(pioid, varid_lat, dimids)
+       dimid_lat = dimids(1)
+       deallocate(dimids)
+    endif
+    rcode = pio_inq_dimlen(pioid, dimid_lat, nlat)
+
+    rcode = pio_inq_dimid(pioid, trim(lon_name), dimid_lon)
+    if (rcode /= PIO_NOERR) then
+       call pio_inq_varndims(pioid, varid_lon, ndims)
+       allocate(dimids(ndims))
+       call pio_inq_vardimid(pioid, varid_lon, dimids)
+       dimid_lon = dimids(1)
+       deallocate(dimids)
+    endif
+    rcode = pio_inq_dimlen(pioid, dimid_lon, nlon)
+
+    allocate(lat(nlat), lon(nlon))
+    rcode = pio_get_var(pioid, varid_lat, lat)
+    rcode = pio_get_var(pioid, varid_lon, lon)
+    call pio_closefile(pioid)
+
+    ! Create Grid from lat/lon
+    maxIndex = (/nlon, nlat/)
+    grid = ESMF_GridCreateNoPeriDimUfrm(maxIndex=maxIndex, &
+           coordSys=ESMF_COORDSYS_SPH_DEG, &
+           staggerloclist=(/ESMF_STAGGERLOC_CENTER/), rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    ! Set Grid coordinates
+    call ESMF_GridGetCoord(grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_CENTER, farrayPtr=grid_lon, rc=rc)
+    call ESMF_GridGetCoord(grid, coordDim=2, staggerloc=ESMF_STAGGERLOC_CENTER, farrayPtr=grid_lat, rc=rc)
+    call ESMF_GridGet(grid, staggerloc=ESMF_STAGGERLOC_CENTER, localDe=0, exclusiveLBound=is, exclusiveUBound=ie, rc=rc)
+
+    do j = 1, ie(2)-is(2)+1
+       do i = 1, ie(1)-is(1)+1
+          grid_lon(i,j) = lon(i + is(1) - 1)
+          grid_lat(i,j) = lat(j + is(2) - 1)
+       end do
+    end do
+
+    ! Convert Grid to Mesh
+    mesh = ESMF_MeshCreate(grid, rc=rc)
+    if (ChkErr(rc,__LINE__,u_FILE_u)) return
+
+    deallocate(lat, lon)
+  end subroutine shr_strdata_create_mesh_from_file
 
 end module dshr_strdata_mod
