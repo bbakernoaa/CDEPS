@@ -1,0 +1,38 @@
+name: Build and Test TIDE
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: jcsda/docker-gnu-openmpi-dev:1.9
+      options: --user root
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Configure CMake
+      run: |
+        source /opt/spack-environment/activate.sh
+        mkdir build
+        cd build
+        export PIO=$(spack location -i parallelio)
+        cmake ..
+
+    - name: Build TIDE and Tests
+      run: |
+        source /opt/spack-environment/activate.sh
+        cd build
+        make -j
+
+    - name: Run Tests
+      run: |
+        source /opt/spack-environment/activate.sh
+        cd build
+        ctest --output-on-failure

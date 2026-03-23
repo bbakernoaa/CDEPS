@@ -28,18 +28,14 @@ module dshr_strdata_mod
   use shr_cal_mod      , only : shr_cal_noleap, shr_cal_gregorian
   use shr_cal_mod      , only : shr_cal_date2ymd, shr_cal_ymd2date, shr_cal_leapyear
   use shr_orb_mod      , only : shr_orb_decl, shr_orb_cosz, shr_orb_undef_real
-#ifdef CESMCOUPLED
-  use shr_pio_mod      , only : shr_pio_getiosys, shr_pio_getiotype, shr_pio_getioformat
-#endif
+
+
   use shr_string_mod   , only : shr_string_listgetname, shr_string_listisvalid, shr_string_listgetnum
 
   use dshr_stream_mod  , only : shr_stream_streamtype, shr_stream_getModelFieldList, shr_stream_getStreamFieldList
   use dshr_stream_mod  , only : shr_stream_taxis_cycle, shr_stream_taxis_extend, shr_stream_findBounds
   use dshr_stream_mod  , only : shr_stream_getCurrFile, shr_stream_setCurrFile, shr_stream_getMeshFilename
   use dshr_stream_mod  , only : shr_stream_init_from_inline, shr_stream_init_from_esmfconfig
-#ifndef DISABLE_FoX
-  use dshr_stream_mod  , only : shr_stream_init_from_xml
-#endif
   use dshr_stream_mod  , only : shr_stream_getnextfilename, shr_stream_getprevfilename, shr_stream_getData
   use dshr_tinterp_mod , only : shr_tInterp_getCosz, shr_tInterp_getAvgCosz, shr_tInterp_getFactors
   use dshr_methods_mod , only : dshr_fldbun_getfldptr, dshr_fldbun_getfieldN, dshr_fldbun_fldchk, chkerr
@@ -200,12 +196,12 @@ contains
     rc = ESMF_SUCCESS
     call ESMF_LogWrite(subname//' called', ESMF_LOGMSG_INFO)
 
-#ifdef CESMCOUPLED
+
     ! Initialize sdat  pio
-    sdat%pio_subsystem => shr_pio_getiosys(trim(compname))
-    sdat%io_type       =  shr_pio_getiotype(trim(compname))
-    sdat%io_format     =  shr_pio_getioformat(trim(compname))
-#endif
+    sdat%pio_subsystem => null()
+    sdat%io_type       =  0
+    sdat%io_format     =  0
+
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -215,13 +211,8 @@ contains
     ! Initialize sdat streams (read xml file for streams)
     sdat%mainproc = (localPet == main_task)
 
-#ifdef DISABLE_FoX
     call shr_stream_init_from_esmfconfig(streamfilename, sdat%stream, logunit, &
          sdat%pio_subsystem, sdat%io_type, sdat%io_format, rc=rc)
-#else
-    call shr_stream_init_from_xml(streamfilename, sdat%stream, sdat%mainproc, logunit, &
-         sdat%pio_subsystem, sdat%io_type, sdat%io_format, trim(compname), rc=rc)
-#endif
 
     allocate(sdat%pstrm(shr_strdata_get_stream_count(sdat)))
 
@@ -279,12 +270,12 @@ contains
 
     ! Initialize sdat%logunit and sdat%mainproc
     sdat%mainproc = (my_task == main_task)
-#ifdef CESMCOUPLED
+
     ! Initialize sdat pio
-    sdat%pio_subsystem => shr_pio_getiosys(trim(compname))
-    sdat%io_type       =  shr_pio_getiotype(trim(compname))
-    sdat%io_format     =  shr_pio_getioformat(trim(compname))
-#endif
+    sdat%pio_subsystem => null()
+    sdat%io_type       =  0
+    sdat%io_format     =  0
+
 
     ! Check source and destination mask, defaults are 0
     if (present(stream_src_mask)) src_mask = stream_src_mask
@@ -458,7 +449,8 @@ contains
           sdat%pstrm(ns)%stream_ub = 2
           allocate(sdat%pstrm(ns)%fldbun_data(2))
           if (mainproc) then
-             write(sdat%stream(1)%logunit,'(a,i8)') trim(subname)//" Creating field bundle array fldbun_data of size 2 for stream ",&
+             write(sdat%stream(1)%logunit,'(a,i8)') trim(subname)// &
+              " Creating field bundle array fldbun_data of size 2 for stream ",&
                   ns
           end if
        else if(sdat%stream(ns)%readmode=='full_file') then
@@ -1037,7 +1029,8 @@ contains
                 if(sdat%stream(ns)%dtlimit == -1) then
                    sdat%pstrm(ns)%override_annual_cycle = .true.
                    if(sdat%mainproc) then
-                      write(logunit,*) trim(subname),' WARNING: Stream ',ns,' is not cycling on annual boundaries, and dtlimit check has been overridden'
+                      write(logunit,*) trim(subname),' WARNING: Stream ',ns, &
+               ' is not cycling on annual boundaries, and dtlimit check has been overridden'
                    endif
                 else
                    dtime = abs(real(dday,r8) + real(sdat%pstrm(ns)%todUB-sdat%pstrm(ns)%todLB,r8)/shr_const_cDay)
@@ -1114,7 +1107,8 @@ contains
                 call ESMF_TraceRegionExit(trim(lstr)//trim(timname)//'_coszenN')
                 if (debug > 0 .and. sdat%mainproc) then
                    do n = 1,size(coszen)
-                      write(sdat%stream(1)%logunit,'(a,i4,2x,4(i18,2x),i8,d20.10)')' stream,lbymd,lbsec,ubymd,ubsec,newdata,n,tavgCoszen= ',&
+                      write(sdat%stream(1)%logunit,'(a,i4,2x,4(i18,2x),i8,d20.10)') &
+         ' stream,lbymd,lbsec,ubymd,ubsec,newdata,n,tavgCoszen= ',&
                            ns, sdat%pstrm(ns)%ymdLB, sdat%pstrm(ns)%todLB, sdat%pstrm(ns)%ymdUB, sdat%pstrm(ns)%todUB, &
                            n, sdat%tavCoszen(n)
                    end do

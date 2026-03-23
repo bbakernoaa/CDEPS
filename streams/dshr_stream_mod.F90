@@ -31,9 +31,8 @@ module dshr_stream_mod
   use pio              , only : file_desc_t, pio_inq_varid, iosystem_desc_t, pio_file_is_open
   use pio              , only : pio_nowrite, pio_inquire_dimension, pio_inquire_variable, pio_bcast_error
   use pio              , only : pio_get_att, pio_get_var
-#ifdef CESMCOUPLED
-  use shr_pio_mod      , only : shr_pio_getiosys, shr_pio_getiotype, shr_pio_getioformat
-#endif
+
+
   use shr_sys_mod      , only : shr_sys_abort
   implicit none
   private ! default private
@@ -43,9 +42,6 @@ module dshr_stream_mod
 
   ! !PUBLIC MEMBER FUNCTIONS:
   public :: shr_stream_init_from_esmfconfig
-#ifndef DISABLE_FoX
-  public :: shr_stream_init_from_xml
-#endif
   public :: shr_stream_init_from_inline  ! initial stream type
   public :: shr_stream_findBounds        ! return lower/upper bounding date info
   public :: shr_stream_getMeshFileName   ! return stream filename
@@ -145,313 +141,6 @@ module dshr_stream_mod
 contains
 !===============================================================================
 
-#ifndef DISABLE_FoX
-  subroutine shr_stream_init_from_xml(streamfilename, streamdat, isroot_task, logunit, &
-                                      pio_subsystem, io_type, io_format, compname, rc)
-    use FoX_DOM, only : extractDataContent, destroy, Node, NodeList, parseFile, getElementsByTagname
-    use FoX_DOM, only : getLength, item
-    use ESMF, only : ESMF_VM, ESMF_VMGetCurrent, ESMF_VMBroadCast, ESMF_SUCCESS
-
-    ! ---------------------------------------------------------------------
-    ! The xml format of a stream txt file will look like the following
-    ! <?xml version="1.0"?>
-    ! <file id="stream" version="1.0">
-    !   <stream_info>
-    !    <taxmode></taxmode>
-    !    <tintalgo></tintalgo>
-    !    <mapalgo></mapalgo>
-    !    <readmode></readmode>
-    !    <dtlimit></dtlimit>
-    !    <year_first></year_first>
-    !    <year_last></year_last>
-    !    <year_align></year_align>
-    !    <vectors></vectors>
-    !    <meshfile></meshfile>
-    !    <lev_dimname></lev_dimname>
-    !    <data_files>
-    !      <file></file>
-    !    </data_files>
-    !    <data_variables>
-    !      <var></var>
-    !    </data_variables>
-    !    <offset></offset>
-    !  </stream_info>
-    ! </file>
-    ! ---------------------------------------------------------------------
-
-    ! input/output variables
-    character(len=*), optional  , intent(in)             :: streamfilename
-    type(shr_stream_streamType) , intent(inout), pointer :: streamdat(:)
-    logical                     , intent(in)             :: isroot_task
-    integer                     , intent(in)             :: logunit
-    type(iosystem_desc_t)       , intent(in), pointer    :: pio_subsystem
-    integer                     , intent(in)             :: io_type
-    integer                     , intent(in)             :: io_format
-    character(len=*)            , intent(in)             :: compname
-    integer                     , intent(out)            :: rc
-
-    ! local variables
-    type(ESMF_VM)            :: vm
-    type(Node)     , pointer :: Sdoc, p, streamnode
-    type(NodeList) , pointer :: streamlist, filelist, varlist
-    character(len=CL)        :: tmpstr
-    integer                  :: i, n, nstrms
-    integer                  :: status
-    integer                  :: tmp(6)
-    real(r8)                 :: rtmp(1)
-    character(*),parameter   :: subName = '(shr_stream_init_from_xml) '
-    ! --------------------------------------------------------
-
-    rc = ESMF_SUCCESS
-
-    nstrms = 0
-
-    if (isroot_task) then
-
-       Sdoc => parseFile(streamfilename, iostat=status)
-       if (status /= 0) then
-          call shr_log_error("Could not parse file "//trim(streamfilename), rc=rc)
-          return
-       endif
-       streamlist => getElementsByTagname(Sdoc, "stream_info")
-       nstrms = getLength(streamlist)
-
-       ! allocate an array of shr_streamtype objects on just isroot_task
-       allocate(streamdat(nstrms))
-
-       ! fill in non-default values for the streamdat attributes
-       do i= 1, nstrms
-          streamnode => item(streamlist, i-1)
-
-          p => item(getElementsByTagname(streamnode, "taxmode"), 0)
-          if (associated(p)) then
-             call extractDataContent(p, streamdat(i)%taxmode)
-             if (streamdat(i)%taxmode /= shr_stream_taxis_cycle   .and. &
-                 streamdat(i)%taxmode /= shr_stream_taxis_extend  .and. &
-                 streamdat(i)%taxmode /= shr_stream_taxis_limit) then
-                call shr_log_error("tintalgo must have a value of either cycle, extend or limit", rc=rc)
-                return
-             end if
-          endif
-
-          p => item(getElementsByTagname(streamnode, "mapalgo"), 0)
-          if (associated(p)) then
-             call extractDataContent(p, streamdat(i)%mapalgo)
-             if (streamdat(i)%mapalgo /= shr_stream_mapalgo_bilinear .and. &
-                 streamdat(i)%mapalgo /= shr_stream_mapalgo_redist   .and. &
-                 streamdat(i)%mapalgo /= shr_stream_mapalgo_nn       .and. &
-                 streamdat(i)%mapalgo /= shr_stream_mapalgo_consf    .and. &
-                 streamdat(i)%mapalgo /= shr_stream_mapalgo_consd    .and. &
-                 streamdat(i)%mapalgo /= shr_stream_mapalgo_none) then
-                call shr_log_error("mapaglo must have a value of either bilinear, redist, nn, consf or consd", rc=rc)
-                return
-             end if
-          endif
-
-          p => item(getElementsByTagname(streamnode, "tintalgo"), 0)
-          if (associated(p)) then
-             call extractDataContent(p, streamdat(i)%tInterpAlgo)
-             if (streamdat(i)%tInterpAlgo /= shr_stream_tinterp_lower   .and. &
-                 streamdat(i)%tInterpAlgo /= shr_stream_tinterp_upper   .and. &
-                 streamdat(i)%tInterpAlgo /= shr_stream_tinterp_nearest .and. &
-                 streamdat(i)%tInterpAlgo /= shr_stream_tinterp_linear  .and. &
-                 streamdat(i)%tInterpAlgo /= shr_stream_tinterp_coszen) then
-                call shr_log_error("tintalgo must have a value of either lower, upper, nearest, linear or coszen", rc=rc)
-                return
-             end if
-          endif
-
-          p => item(getElementsByTagname(streamnode, "readmode"), 0)
-          if (associated(p)) then
-             call extractDataContent(p, streamdat(i)%readMode)
-          endif
-
-          p=> item(getElementsByTagname(streamnode, "year_first"), 0)
-          if(associated(p)) then
-             call extractDataContent(p, streamdat(i)%yearFirst)
-          else
-             call shr_log_error("yearFirst must be provided", rc=rc)
-             return
-          endif
-
-          p=> item(getElementsByTagname(streamnode, "year_last"), 0)
-          if(associated(p)) then
-             call extractDataContent(p, streamdat(i)%yearLast)
-          else
-             call shr_log_error("yearLast must be provided", rc=rc)
-             return
-          endif
-
-          p=> item(getElementsByTagname(streamnode, "year_align"), 0)
-          if(associated(p)) then
-             call extractDataContent(p, streamdat(i)%yearAlign)
-          else
-             call shr_log_error("yearAlign must be provided", rc=rc)
-             return
-          endif
-
-          p=> item(getElementsByTagname(streamnode, "dtlimit"), 0)
-          if(associated(p)) then
-             call extractDataContent(p, streamdat(i)%dtlimit)
-          endif
-
-          p=> item(getElementsByTagname(streamnode, "offset"), 0)
-          if(associated(p)) then
-             call extractDataContent(p, streamdat(i)%offset)
-          endif
-
-          p=> item(getElementsByTagname(streamnode, "meshfile"), 0)
-          if (associated(p)) then
-             call extractDataContent(p, streamdat(i)%meshfile)
-          else
-             call shr_log_error("mesh file name must be provided", rc=rc)
-             return
-          endif
-
-          p => item(getElementsByTagname(streamnode, "vectors"), 0)
-          if (associated(p)) then
-             call extractDataContent(p, streamdat(i)%stream_vectors)
-          else
-             call shr_log_error("stream vectors must be provided", rc=rc)
-             return
-          endif
-
-          ! Determine name of vertical dimension
-          p => item(getElementsByTagname(streamnode, "lev_dimname"), 0)
-          if (associated(p)) then
-             call extractDataContent(p, streamdat(i)%lev_dimname)
-          else
-             call shr_log_error("stream vertical level dimension name must be provided", rc=rc)
-             return
-          endif
-
-          ! Determine input data files
-          p => item(getElementsByTagname(streamnode, "datafiles"), 0)
-          if (.not. associated(p)) then
-             call shr_log_error("stream data files must be provided", rc=rc)
-             return
-          endif
-          filelist => getElementsByTagname(p,"file")
-          streamdat(i)%nfiles = getLength(filelist)
-          allocate(streamdat(i)%file( streamdat(i)%nfiles))
-          do n=1, streamdat(i)%nfiles
-             p => item(filelist, n-1)
-             call extractDataContent(p, streamdat(i)%file(n)%name)
-          enddo
-
-          ! Determine name(s) of stream variable(s) in file and model
-          p => item(getElementsByTagname(streamnode, "datavars"), 0)
-          varlist => getElementsByTagname(p, "var")
-          streamdat(i)%nvars = getLength(varlist)
-          allocate(streamdat(i)%varlist(streamdat(i)%nvars))
-          do n = 1, streamdat(i)%nvars
-             p => item(varlist, n-1)
-             call extractDataContent(p, tmpstr)
-             streamdat(i)%varlist(n)%nameinfile = tmpstr(1:index(tmpstr, " "))
-             streamdat(i)%varlist(n)%nameinmodel = tmpstr(index(trim(tmpstr), " ", .true.)+1:)
-          enddo
-
-       enddo
-#ifndef CPRPGI
-! PGI compiler has an issue with this call (empty procedure)
-       call destroy(Sdoc)
-#endif
-    endif
-
-    ! allocate streamdat instance on all tasks
-    call ESMF_VMGetCurrent(vm, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    tmp(1) = nstrms
-    call ESMF_VMBroadCast(vm, tmp, 1, 0, rc=rc)
-    if (ChkErr(rc,__LINE__,u_FILE_u)) return
-    nstrms = tmp(1)
-    if (.not. isroot_task) then
-       allocate(streamdat(nstrms))
-    endif
-
-    ! broadcast the contents of streamdat from the main task  to all tasks
-    do i=1,nstrms
-       tmp(1) = streamdat(i)%nfiles
-       tmp(2) = streamdat(i)%nvars
-       tmp(3) = streamdat(i)%yearFirst
-       tmp(4) = streamdat(i)%yearLast
-       tmp(5) = streamdat(i)%yearAlign
-       tmp(6) = streamdat(i)%offset
-       call ESMF_VMBroadCast(vm, tmp, 6, 0, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       streamdat(i)%nfiles    = tmp(1)
-       streamdat(i)%nvars     = tmp(2)
-       streamdat(i)%yearFirst = tmp(3)
-       streamdat(i)%yearLast  = tmp(4)
-       streamdat(i)%yearAlign = tmp(5)
-       streamdat(i)%offset    = tmp(6)
-       if(.not. isroot_task) then
-          allocate(streamdat(i)%file(streamdat(i)%nfiles))
-          allocate(streamdat(i)%varlist(streamdat(i)%nvars))
-       endif
-       do n=1,streamdat(i)%nfiles
-          call ESMF_VMBroadCast(vm, streamdat(i)%file(n)%name, CX, 0, rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       enddo
-       do n=1,streamdat(i)%nvars
-          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%nameinfile, CS, 0, rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-          call ESMF_VMBroadCast(vm, streamdat(i)%varlist(n)%nameinmodel, CS, 0, rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       enddo
-       call ESMF_VMBroadCast(vm, streamdat(i)%meshfile,     CL, 0, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call ESMF_VMBroadCast(vm, streamdat(i)%lev_dimname,  CS, 0, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call ESMF_VMBroadCast(vm, streamdat(i)%taxmode,      CS, 0, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call ESMF_VMBroadCast(vm, streamdat(i)%readmode,     CS, 0, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call ESMF_VMBroadCast(vm, streamdat(i)%tinterpAlgo,  CS, 0, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call ESMF_VMBroadCast(vm, streamdat(i)%stream_vectors,  CL, 0, rc=rc)
-
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       call ESMF_VMBroadCast(vm, streamdat(i)%mapalgo,      CS, 0, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       rtmp(1) = streamdat(i)%dtlimit
-       call ESMF_VMBroadCast(vm, rtmp, 1, 0, rc=rc)
-       if (ChkErr(rc,__LINE__,u_FILE_u)) return
-       streamdat(i)%dtlimit = rtmp(1)
-#ifdef CESMCOUPLED
-       ! Initialize stream pio
-       streamdat(i)%pio_subsystem => shr_pio_getiosys(trim(compname))
-       streamdat(i)%pio_iotype    =  shr_pio_getiotype(trim(compname))
-       streamdat(i)%pio_ioformat  =  shr_pio_getioformat(trim(compname))
-       ! This is to avoid an unused dummy argument warning
-       if(.false.) then
-          if(associated(pio_subsystem)) print *, io_type, io_format
-       endif
-#else
-       streamdat(i)%pio_subsystem => pio_subsystem
-       streamdat(i)%pio_iotype = io_type
-       streamdat(i)%pio_ioformat = io_format
-#endif
-       ! Set logunit
-       streamdat(i)%logunit = logunit
-
-       call shr_stream_getCalendar(streamdat(i), 1, streamdat(i)%calendar)
-
-       ! Error check
-       if (trim(streamdat(i)%taxmode) == shr_stream_taxis_extend .and. streamdat(i)%dtlimit < 1.e10) then
-          call shr_log_error(trim(subName)//" ERROR: if taxmode value is extend set dtlimit to 1.e30", rc=rc)
-          return
-       end if
-       ! initialize flag that stream has been set
-       streamdat(i)%init = .true.
-    enddo
-
-
-  end subroutine shr_stream_init_from_xml
-
-#endif
-
-  !===============================================================================
 
   subroutine shr_stream_init_from_inline(streamdat, &
        pio_subsystem, io_type, io_format, &
@@ -513,20 +202,20 @@ contains
     streamdat(1)%offset       = stream_offset
     streamdat(1)%taxMode      = trim(stream_taxMode)
     streamdat(1)%dtlimit      = stream_dtlimit
-#ifdef CESMCOUPLED
+
     ! Initialize stream pio
-    streamdat(1)%pio_subsystem => shr_pio_getiosys(trim(compname))
-    streamdat(1)%pio_iotype    =  shr_pio_getiotype(trim(compname))
-    streamdat(1)%pio_ioformat  =  shr_pio_getioformat(trim(compname))
+    streamdat(1)%pio_subsystem => pio_subsystem
+    streamdat(1)%pio_iotype    =  io_type
+    streamdat(1)%pio_ioformat  =  io_format
     ! This is to avoid an unused dummy argument warning
     if(.false.) then
        if(associated(pio_subsystem)) print *, io_type, io_format
     endif
-#else
+
     streamdat(1)%pio_subsystem => pio_subsystem
     streamdat(1)%pio_iotype = io_type
     streamdat(1)%pio_ioformat = io_format
-#endif
+
 
     ! initialize stream filenames
     if (allocated(streamdat(1)%file)) then
@@ -615,11 +304,6 @@ contains
     character(*) , parameter :: u_FILE_u = __FILE__
 
     ! ---------------------------------------------------------------------
-
-    rc = ESMF_SUCCESS
-
-    nstrms = 0
-
     ! allocate streamdat instance on all tasks
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return

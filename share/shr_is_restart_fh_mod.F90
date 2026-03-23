@@ -51,7 +51,8 @@ contains
     if (isPresent) then !model_configure exists. this is ufs run
       CF_mc = ESMF_ConfigCreate(rc=rc)
       call ESMF_ConfigLoadFile(config=CF_mc,filename='model_configure' ,rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, &
+              file=__FILE__)) return
 
       nfh = ESMF_ConfigGetLen(config=CF_mc, label ='restart_fh:',rc=rc)
       if (nfh .gt. 0) then
@@ -59,16 +60,19 @@ contains
         allocate(restartfh_info%restartFhTimes(1:nfh)) !not deallocated here
 
         call ESMF_ConfigGetAttribute(CF_mc,valueList=restart_fh,label='restart_fh:', rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, &
+              file=__FILE__)) return
         ! create a list of times at each restart_fh
         do n = 1,nfh
           fh_s = NINT(3600*restart_fh(n))
           call ESMF_TimeIntervalSet(fhInterval, s=fh_s, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, &
+              file=__FILE__)) return
           restartfh_info%restartFhTimes(n) = currentTime + fhInterval
           call ESMF_TimePrint(restartfh_info%restartFhTimes(n), options="string", &
                               preString="restart_fh at ", unit=timestr, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, &
+              file=__FILE__)) return
           if (lLog) then
             if (mod(fh_s,dtime) /= 0) then
               call ESMF_LogWrite('restart time NOT to be written for '//trim(timestr), ESMF_LOGMSG_INFO)
@@ -80,7 +84,8 @@ contains
         deallocate(restart_fh)
       end if !nfh>0
       call ESMF_ConfigDestroy(CF_mc, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, &
+              file=__FILE__)) return
     end if !model_configure
 
   end subroutine init_is_restart_fh
@@ -109,7 +114,8 @@ contains
       ! check if next time is == to any restartfhtime
       do nfh = 1,size(restartfh_info%restartFhTimes)
         call ESMF_ClockGetNextTime(clock, nextTime=nexttime, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, &
+              file=__FILE__)) return
         if (nextTime == restartfh_info%restartFhTimes(nfh)) restartfh_info%write_restartfh = .true.
       end do
     end if
@@ -154,10 +160,12 @@ contains
 
     elapsedTime = nextTime - startTime
     call ESMF_TimeIntervalGet(elapsedTime, h_r8=fhour,rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, &
+              file=__FILE__)) return
 
     call ESMF_TimeGet(nexttime, yy=yr, mm=mon, dd=day, h=hour, m=minute, s=sec, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, &
+              file=__FILE__)) return
     write(nexttimestring,'(6i8)')yr,mon,day,hour,minute,sec
 
     write(filename,'(a,i4.4)')'log.'//trim(complog)//'.f',int(fhour)
