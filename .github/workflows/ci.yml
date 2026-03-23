@@ -14,14 +14,17 @@ jobs:
     - uses: actions/checkout@v3
     - name: Configure CMake
       run: |
+        export PATH=/opt/views/view/bin:$PATH
         mkdir -p build
         cd build
         cmake ..
     - name: Build
       run: |
+        export PATH=/opt/views/view/bin:$PATH
         cd build
         make -j$(nproc)
     - name: Run Tests
       run: |
+        export PATH=/opt/views/view/bin:$PATH
         cd build
         ctest --output-on-failure
