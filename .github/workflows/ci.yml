@@ -1,0 +1,28 @@
+name: TIDE Build and Test
+
+on:
+  push:
+    branches: [ main, tide-library, tide-integration-tutorial ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    container:
+      image: jcsda/docker-gnu-openmpi-dev:1.9
+    steps:
+    - uses: actions/checkout@v3
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+    - name: Build
+      run: |
+        cd build
+        make -j$(nproc)
+    - name: Run Tests
+      run: |
+        cd build
+        ctest --output-on-failure
