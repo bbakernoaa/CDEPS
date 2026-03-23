@@ -1,11 +1,17 @@
 
 if (DEFINED ENV{ESMFMKFILE})
-  message("ESMFMKFILE:   $ENV{ESMFMKFILE}")
+  set(ESMFMKFILE $ENV{ESMFMKFILE})
+  message("ESMFMKFILE from ENV:   ${ESMFMKFILE}")
+elseif (DEFINED ESMFMKFILE)
+  message("ESMFMKFILE from CACHE: ${ESMFMKFILE}")
 else()
-  message(FATAL_ERROR "ESMFMKFILE env variable is not defined")
+  # Try to find it in common locations
+  find_file(ESMFMKFILE esmf.mk PATHS /opt/views/view/lib /usr/lib /usr/local/lib)
+  if (NOT ESMFMKFILE)
+    message(FATAL_ERROR "ESMFMKFILE not defined and esmf.mk not found")
+  endif()
+  message("ESMFMKFILE found:      ${ESMFMKFILE}")
 endif()
-
-set(ESMFMKFILE $ENV{ESMFMKFILE})
 
 # convert esmf.mk makefile variables to cmake variables until ESMF
 # provides proper cmake package

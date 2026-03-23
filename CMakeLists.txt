@@ -9,6 +9,45 @@ option(WERROR "add the -Werror flag to compiler" OFF)
 # Find Dependencies
 find_package(ESMF REQUIRED)
 find_package(MPI REQUIRED)
+
+# Use paths from ESMFMKFILE if available
+if(ESMF_FOUND)
+  link_directories(${ESMF_F90ESMFLINKRPATHS})
+endif()
+
+# Fallback for JCSDA docker image if link_directories fails to find libraries
+link_directories(
+  /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/esmf-8.8.0-ms7pardr7fgwhdnp6mqgtw22qgcfewny/lib
+  /opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib
+  /opt/views/view/lib
+)
+
+# PIO handling
+if (DEFINED ENV{PIO_ROOT})
+  set(PIO_C_LIBRARY "$ENV{PIO_ROOT}/lib/libpioc.so")
+  set(PIO_C_INCLUDE_DIR "$ENV{PIO_ROOT}/include")
+  set(PIO_Fortran_LIBRARY "$ENV{PIO_ROOT}/lib/libpiof.so")
+  set(PIO_Fortran_INCLUDE_DIR "$ENV{PIO_ROOT}/include")
+elseif (ESMF_FOUND)
+    # Try to extract from ESMF paths if they point to the JCSDA views
+    foreach(path ${ESMF_F90COMPILEPATHS})
+        if(path MATCHES "parallelio")
+            set(PIO_C_LIBRARY "${path}/../lib/libpioc.so")
+            set(PIO_C_INCLUDE_DIR "${path}")
+            set(PIO_Fortran_LIBRARY "${path}/../lib/libpiof.so")
+            set(PIO_Fortran_INCLUDE_DIR "${path}")
+        endif()
+    endforeach()
+endif()
+
+# Fallback for JCSDA docker image if not found above
+if (NOT PIO_C_LIBRARY AND IS_DIRECTORY "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj")
+    set(PIO_C_LIBRARY "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib/libpioc.so")
+    set(PIO_C_INCLUDE_DIR "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/include")
+    set(PIO_Fortran_LIBRARY "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/lib/libpiof.so")
+    set(PIO_Fortran_INCLUDE_DIR "/opt/software/linux-ubuntu24.04-x86_64/gcc-13.3.0/parallelio-2.6.2-7b45pabda4ysavdoch6eielvyiwxramj/include")
+endif()
+
 find_package(PIO REQUIRED COMPONENTS C Fortran)
 
 # yaml-cpp (Assuming it's available or can be fetched)
