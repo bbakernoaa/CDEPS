@@ -15,7 +15,7 @@ target_include_directories(streams PUBLIC
 target_include_directories(streams PRIVATE
   ${ESMF_F90COMPILEPATHS}
   ${PIO_Fortran_INCLUDE_DIR}
-  ${CMAKE_BINARY_DIR}/share
+  $<TARGET_PROPERTY:cdeps_share,INTERFACE_INCLUDE_DIRECTORIES>
 )
 
 add_dependencies(streams cdeps_share)

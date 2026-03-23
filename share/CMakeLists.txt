@@ -22,7 +22,7 @@ target_include_directories (cdeps_share PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
-target_include_directories (cdeps_share PRIVATE ${ESMF_F90COMPILEPATHS} ${PIO_Fortran_INCLUDE_DIRS})
+target_include_directories (cdeps_share PRIVATE ${ESMF_F90COMPILEPATHS} ${PIO_Fortran_INCLUDE_DIR})
 
 target_compile_definitions(cdeps_share PUBLIC CPRGNU)
 

@@ -85,13 +85,22 @@ target_include_directories(tide PRIVATE
   ${PIO_Fortran_INCLUDE_DIR}
 )
 
+# Extract link directories from ESMF paths if they aren't already set
+foreach(path ${ESMF_F90COMPILEPATHS})
+  if(IS_DIRECTORY ${path}/../lib)
+    link_directories(${path}/../lib)
+  endif()
+endforeach()
+link_directories(/opt/views/view/lib)
+
 target_link_libraries(tide PUBLIC
-  cdeps_share
-  streams
   dshr
+  streams
+  cdeps_share
   yaml-cpp
   ${ESMF_F90ESMFLINKLIBS}
-  ${PIO_Fortran_LIBRARIES}
+  ${PIO_Fortran_LIBRARY}
+  ${PIO_C_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   m
 )
@@ -101,10 +110,16 @@ enable_testing()
 add_executable(test_tide tide/tests/test_tide.F90)
 target_include_directories(test_tide PRIVATE
   ${ESMF_F90COMPILEPATHS}
+  ${PIO_Fortran_INCLUDE_DIR}
 )
-target_link_libraries(test_tide PRIVATE tide
+target_link_libraries(test_tide PRIVATE
+  tide
+  dshr
+  streams
+  cdeps_share
   ${ESMF_F90ESMFLINKLIBS}
-  ${PIO_Fortran_LIBRARIES}
+  ${PIO_Fortran_LIBRARY}
+  ${PIO_C_LIBRARY}
   ${MPI_Fortran_LIBRARIES}
   m
 )

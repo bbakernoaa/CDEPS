@@ -108,7 +108,7 @@ contains
   !> @param clock The current ESMF Clock.
   !> @param rc Return code.
   subroutine tide_advance(tide, clock, rc)
-    use shr_cal_mod, only : shr_cal_date2ymd
+    use shr_cal_mod, only : shr_cal_date2ymd, shr_cal_ymd2date
     type(tide_type), intent(inout) :: tide
     type(ESMF_Clock), intent(in) :: clock
     integer, intent(out) :: rc
@@ -142,5 +142,15 @@ contains
 
     call shr_strdata_get_stream_pointer(tide%sdat, field_name, ptr, rc)
   end subroutine tide_get_ptr
+
+  !> @brief Destroys TIDE internal objects.
+  !> @param tide The TIDE handle.
+  !> @param rc Return code.
+  subroutine tide_finalize(tide, rc)
+    type(tide_type), intent(inout) :: tide
+    integer, intent(out) :: rc
+    ! core clean logic
+    rc = ESMF_SUCCESS
+  end subroutine tide_finalize
 
 end module tide_mod
