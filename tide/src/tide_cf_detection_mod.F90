@@ -207,7 +207,7 @@ contains
     call pio_seterrorhandling(pio_file, pio_bcast_error, old_handle)
 
     ! Check Conventions global attribute
-    pio_rc = pio_inq_att(pio_file, pio_global, 'Conventions', len=att_len)
+    pio_rc = pio_inq_att(pio_file, pio_global, 'Conventions')
     if (pio_rc == pio_noerr) then
       str_val = ''
       pio_rc = pio_get_att(pio_file, pio_global, 'Conventions', str_val)
@@ -258,7 +258,7 @@ contains
 
           ! Read standard_name
           cache%vars(ivar)%has_standard_name = .false.
-          pio_rc = pio_inq_att(pio_file, varid, 'standard_name', len=att_len)
+          pio_rc = pio_inq_att(pio_file, varid, 'standard_name')
           if (pio_rc == pio_noerr) then
             str_val = ''
             pio_rc = pio_get_att(pio_file, varid, 'standard_name', str_val)
@@ -273,7 +273,7 @@ contains
 
           ! Read long_name
           cache%vars(ivar)%has_long_name = .false.
-          pio_rc = pio_inq_att(pio_file, varid, 'long_name', len=att_len)
+          pio_rc = pio_inq_att(pio_file, varid, 'long_name')
           if (pio_rc == pio_noerr) then
             str_val = ''
             pio_rc = pio_get_att(pio_file, varid, 'long_name', str_val)
@@ -288,7 +288,7 @@ contains
 
           ! Read units
           cache%vars(ivar)%has_units = .false.
-          pio_rc = pio_inq_att(pio_file, varid, 'units', len=att_len)
+          pio_rc = pio_inq_att(pio_file, varid, 'units')
           if (pio_rc == pio_noerr) then
             str_val = ''
             pio_rc = pio_get_att(pio_file, varid, 'units', str_val)
@@ -303,7 +303,7 @@ contains
 
           ! Read coordinates
           cache%vars(ivar)%coordinates = ''
-          pio_rc = pio_inq_att(pio_file, varid, 'coordinates', len=att_len)
+          pio_rc = pio_inq_att(pio_file, varid, 'coordinates')
           if (pio_rc == pio_noerr) then
             str_val = ''
             pio_rc = pio_get_att(pio_file, varid, 'coordinates', str_val)
