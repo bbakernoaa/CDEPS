@@ -12,10 +12,8 @@ target_include_directories(dshr PUBLIC
 target_include_directories(dshr PRIVATE
   ${ESMF_F90COMPILEPATHS}
   ${PIO_Fortran_INCLUDE_DIR}
-  ${CMAKE_BINARY_DIR}/share
-  ${CMAKE_BINARY_DIR}/streams
 )
 
-add_dependencies(dshr cdeps_share streams)
+target_link_libraries(dshr PUBLIC cdeps_share streams)
 
 install(TARGETS dshr ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)

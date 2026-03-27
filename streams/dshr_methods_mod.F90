@@ -177,6 +177,7 @@ contains
     type(ESMF_Field)  :: lfield
     integer           :: ungriddedUBound(1)
     character(len=*), parameter :: subname='(dshr_fldbun_GetFldPtr)'
+    real(R8), pointer :: temp_ptr(:)
     ! ----------------------------------------------
 
     rc = ESMF_SUCCESS
@@ -201,15 +202,24 @@ contains
        if (chkerr(rc,__LINE__,u_FILE_u)) return
        lrank = 2
     else
-       if (.not.present(fldptr1)) then
+       if (present(fldptr1)) then
+          call ESMF_FieldGet(lfield, farrayptr=fldptr1, rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
+          lrank = 1
+       elseif (present(fldptr2)) then
+          ! Special handling: retrieve rank-1 field into rank-2 pointer (N,1)
+          call ESMF_FieldGet(lfield, farrayptr=temp_ptr, rc=rc)
+          if (chkerr(rc,__LINE__,u_FILE_u)) return
+          fldptr2(1:size(temp_ptr), 1:1) => temp_ptr
+          lrank = 2
+       else
           call ESMF_LogWrite(trim(subname)//": ERROR missing rank=1 array ", &
                ESMF_LOGMSG_ERROR, line=__LINE__, file=u_FILE_u)
+          print *, "DEBUG: dshr_fldbun_GetFldPtr: ungriddedUBound(1)=", ungriddedUBound(1)
+          print *, "DEBUG: present(fldptr1)=", present(fldptr1), " present(fldptr2)=", present(fldptr2)
           rc = ESMF_FAILURE
           return
-       endif
-       call ESMF_FieldGet(lfield, farrayptr=fldptr1, rc=rc)
-       if (chkerr(rc,__LINE__,u_FILE_u)) return
-       lrank = 1
+       end if
     end if
     if (present(rank)) rank = lrank
     if (present(field)) field = lfield

@@ -1272,7 +1272,7 @@ contains
              write(logunit,*) trim(subname),' ERROR: fixed_year settings = ',orb_iyear
              write (msgstr, *) ' ERROR: invalid settings for orb_mode '//trim(orb_mode)
           end if
-          call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, file=__FILE__, rcToReturn=rc)
+          if (ESMF_LogFoundError(rcToCheck=ESMF_RC_NOT_VALID, msg=msgstr, rcToReturn=rc)) continue
           return  ! bail out
        else
           orb_obliq = SHR_ORB_UNDEF_REAL
@@ -1286,7 +1286,7 @@ contains
              write(logunit,*) trim(subname),' ERROR: variable_year settings = ',orb_iyear, orb_iyear_align
              write (msgstr, *) subname//' ERROR: invalid settings for orb_mode '//trim(orb_mode)
           end if
-          call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, file=__FILE__, rcToReturn=rc)
+          if (ESMF_LogFoundError(rcToCheck=ESMF_RC_NOT_VALID, msg=msgstr, rcToReturn=rc)) continue
           return  ! bail out
        else
           orb_obliq = SHR_ORB_UNDEF_REAL
@@ -1303,7 +1303,7 @@ contains
              write(logunit,*) trim(subname),' ERROR: orb_mvelp = ',orb_mvelp
              write (msgstr, *) subname//' ERROR: invalid settings for orb_mode '//trim(orb_mode)
           end if
-          call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, file=__FILE__, rcToReturn=rc)
+          if (ESMF_LogFoundError(rcToCheck=ESMF_RC_NOT_VALID, msg=msgstr, rcToReturn=rc)) continue
           return  ! bail out
        else
           orb_iyear       = SHR_ORB_UNDEF_INT
@@ -1311,7 +1311,7 @@ contains
        endif
     else
        write (msgstr, *) subname//' ERROR: invalid orb_mode '//trim(orb_mode)
-       call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, file=__FILE__, rcToReturn=rc)
+       if (ESMF_LogFoundError(rcToCheck=ESMF_RC_NOT_VALID, msg=msgstr, rcToReturn=rc)) continue
        rc = ESMF_FAILURE
        return  ! bail out
     endif
@@ -1366,7 +1366,7 @@ contains
          mvelpp == SHR_ORB_UNDEF_REAL .or. lambm0 == SHR_ORB_UNDEF_REAL) then
        write (msgstr, *) subname//' ERROR: orb params incorrect'
        write (logunit, *) msgstr
-       call ESMF_LogSetError(ESMF_RC_NOT_VALID, msg=msgstr, line=__LINE__, file=__FILE__, rcToReturn=rc)
+       if (ESMF_LogFoundError(rcToCheck=ESMF_RC_NOT_VALID, msg=msgstr, rcToReturn=rc)) continue
        return  ! bail out
     endif
 

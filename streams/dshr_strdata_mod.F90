@@ -1,17 +1,21 @@
 module dshr_strdata_mod
 
+  use iso_c_binding
   ! holds data and methods to advance data models
   ! Obtain the model domain and the stream domain for each stream
 
   use ESMF             , only : ESMF_Mesh, ESMF_RouteHandle, ESMF_Field, ESMF_FieldBundle
+  use ESMF             , only : ESMF_Grid, ESMF_GridCreate, ESMF_GridIsCreated
+  use ESMF             , only : ESMF_GridAddCoord, ESMF_GridGetCoord, ESMF_GridGet, ESMF_COORDSYS_SPH_DEG
+  use ESMF             , only : ESMF_INDEX_DELOCAL
   use ESMF             , only : ESMF_Clock, ESMF_VM, ESMF_VMGet, ESMF_VMGetCurrent
-  use ESMF             , only : ESMF_DistGrid, ESMF_SUCCESS, ESMF_MeshGet, ESMF_DistGridGet
+  use ESMF             , only : ESMF_DistGrid, ESMF_DistGridCreate, ESMF_SUCCESS, ESMF_FAILURE, ESMF_MeshGet, ESMF_DistGridGet
   use ESMF             , only : ESMF_VMBroadCast, ESMF_MeshIsCreated, ESMF_MeshCreate
   use ESMF             , only : ESMF_CALKIND_NOLEAP, ESMF_CALKIND_GREGORIAN
   use ESMF             , only : ESMF_CalKind_Flag, ESMF_Time, ESMF_TimeInterval
   use ESMF             , only : ESMF_TimeIntervalGet, ESMF_TYPEKIND_R8, ESMF_FieldCreate
-  use ESMF             , only : ESMF_FILEFORMAT_ESMFMESH, ESMF_FieldCreate
-  use ESMF             , only : ESMF_FieldBundleCreate, ESMF_MESHLOC_ELEMENT, ESMF_FieldBundleAdd
+  use ESMF             , only : ESMF_FILEFORMAT_ESMFMESH, ESMF_FILEFORMAT_GRIDSPEC, ESMF_FieldCreate
+  use ESMF             , only : ESMF_FieldBundleCreate, ESMF_MESHLOC_ELEMENT, ESMF_STAGGERLOC_CENTER, ESMF_FieldBundleAdd
   use ESMF             , only : ESMF_POLEMETHOD_ALLAVG, ESMF_EXTRAPMETHOD_NEAREST_STOD
   use ESMF             , only : ESMF_REGRIDMETHOD_BILINEAR, ESMF_REGRIDMETHOD_NEAREST_STOD
   use ESMF             , only : ESMF_REGRIDMETHOD_CONSERVE, ESMF_NORMTYPE_FRACAREA, ESMF_NORMTYPE_DSTAREA
@@ -88,6 +92,7 @@ module dshr_strdata_mod
   type shr_strdata_perstream
      character(CL)                       :: stream_meshfile                 ! stream mesh file from stream txt file
      type(ESMF_Mesh)                     :: stream_mesh                     ! stream mesh created from stream mesh file
+     type(ESMF_Grid)                     :: stream_grid                     ! stream grid created from file
      type(io_desc_t)                     :: stream_pio_iodesc               ! stream pio descriptor
      logical                             :: stream_pio_iodesc_set =.false.  ! true=>pio iodesc has been set
      type(ESMF_RouteHandle)              :: routehandle                     ! stream n -> model mesh mapping
@@ -387,6 +392,7 @@ contains
 
     ! local variables
     type(ESMF_Mesh), pointer     :: stream_mesh
+    type(ESMF_Grid), pointer     :: stream_grid
     type(ESMF_CalKind_Flag)      :: esmf_caltype    ! esmf calendar type
     character(CS)                :: calendar        ! calendar name
     integer                      :: ns              ! stream index
@@ -420,10 +426,12 @@ contains
 
        ! Set pointer for stream_mesh
        stream_mesh => sdat%pstrm(ns)%stream_mesh
+       stream_grid => sdat%pstrm(ns)%stream_grid
 
        ! Create the target stream mesh from the stream mesh file
        ! TODO: add functionality if the stream mesh needs to be created from a grid
        call shr_stream_getMeshFileName (sdat%stream(ns), filename)
+
        if (filename /= 'none' .and. mainproc) then
           inquire(file=trim(filename),exist=fileExists)
           if (.not. fileExists) then
@@ -437,7 +445,26 @@ contains
        !
        if(filename /= 'none') then
           stream_mesh = ESMF_MeshCreate(trim(filename), fileformat=ESMF_FILEFORMAT_ESMFMESH, rc=rc)
-          if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          if (rc /= ESMF_SUCCESS) then
+             ! Attempt to create regular Grid if Mesh creation fails (e.g. for standard NetCDF files)
+             rc = ESMF_SUCCESS
+             stream_grid = ESMF_GridCreate(trim(filename), fileformat=ESMF_FILEFORMAT_GRIDSPEC, &
+                  coordNames=(/"lon", "lat"/), &
+                  isSphere=.true., addUserArea=.true., addMask=.true., rc=rc)
+             if (ChkErr(rc,__LINE__,u_FILE_u)) return
+          endif
+       endif
+
+       if (.not. ESMF_MeshIsCreated(stream_mesh) .and. .not. ESMF_GridIsCreated(stream_grid)) then
+          ! Try to create grid from file coordinates if mesh_file path refers to a data file
+          if (trim(filename) == 'none') then
+             ! If mesh_file is none, try to use the first data file
+             call shr_stream_getData(sdat%stream(ns), 1, filename)
+          endif
+
+          rc = ESMF_SUCCESS
+          call shr_strdata_create_grid_from_netcdf(sdat%pio_subsystem, sdat%io_type, trim(filename), stream_grid, rc)
+          rc = ESMF_SUCCESS
        endif
 
        ! Determine the number of stream levels
@@ -545,6 +572,20 @@ contains
              call ESMF_FieldFill(sdat%pstrm(ns)%field_stream, dataFillScheme="const", const1=1.0_r8, rc=rc)
              if (chkerr(rc,__LINE__,u_FILE_u)) return
           end if
+       elseif (ESMF_GridIsCreated(stream_grid)) then
+          if (stream_nlev > 1) then
+             sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_grid, &
+                  ESMF_TYPEKIND_r8, staggerloc=ESMF_STAGGERLOC_CENTER, &
+                  ungriddedLbound=(/1/), ungriddedUbound=(/stream_nlev/), gridToFieldMap=(/2/), &
+                  rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+          else
+             sdat%pstrm(ns)%field_stream = ESMF_FieldCreate(stream_grid, &
+                  ESMF_TYPEKIND_r8, staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+             call ESMF_FieldFill(sdat%pstrm(ns)%field_stream, dataFillScheme="const", const1=1.0_r8, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+          end if
        endif
 
        ! Why not use fldbun_model rather than fldbun_data?
@@ -552,7 +593,7 @@ contains
        call dshr_fldbun_getFieldN(sdat%pstrm(ns)%fldbun_data(index), 1, lfield_dst, rc=rc)
        if (chkerr(rc,__LINE__,u_FILE_u)) return
 
-       if (.not.  ESMF_MeshIsCreated(stream_mesh)) then
+       if (.not. (ESMF_MeshIsCreated(stream_mesh) .or. ESMF_GridIsCreated(stream_grid))) then
           sdat%stream(ns)%mapalgo = 'none'
        else
           if (trim(sdat%stream(ns)%mapalgo) == "bilinear") then
@@ -1462,6 +1503,7 @@ contains
     type(shr_strdata_type)      , intent(inout)         :: sdat  ! strdata data data-type
     type(shr_strdata_perstream) , intent(inout)         :: per_stream
     type(shr_stream_streamType) , intent(inout)         :: stream
+
     type(ESMF_FieldBundle)      , intent(inout)         :: fldbun_data
     character(len=*)            , intent(in)            :: filename
     integer                     , intent(in)            :: nt
@@ -1557,7 +1599,7 @@ contains
 
     stream_nlev = per_stream%stream_nlev
 
-    if (ESMF_MeshIsCreated(per_stream%stream_mesh)) then
+    if (ESMF_MeshIsCreated(per_stream%stream_mesh) .or. ESMF_GridIsCreated(per_stream%stream_grid)) then
        if (.not. per_stream%stream_pio_iodesc_set) then
           if (sdat%mainproc) write(sdat%stream(1)%logunit,F00) 'setting pio descriptor : ',trim(filename)
           call shr_strdata_set_stream_iodesc(sdat, per_stream, trim(per_stream%fldlist_stream(1)), &
@@ -1569,14 +1611,23 @@ contains
           call dshr_field_getfldptr(per_stream%field_stream, fldptr2=dataptr2d, rc=rc)
           if (chkerr(rc,__LINE__,u_FILE_u)) return
        else
-          call dshr_field_getfldptr(per_stream%field_stream, fldptr1=dataptr1d, rc=rc)
-          if (chkerr(rc,__LINE__,u_FILE_u)) return
+          if (ESMF_GridIsCreated(per_stream%stream_grid)) then
+             block
+                real(r8), pointer :: temp2d(:,:)
+                call ESMF_FieldGet(per_stream%field_stream, farrayPtr=temp2d, rc=rc)
+                if (chkerr(rc,__LINE__,u_FILE_u)) return
+                call c_f_pointer(c_loc(temp2d), dataptr1d, [size(temp2d)])
+             end block
+          else
+             call dshr_field_getfldptr(per_stream%field_stream, fldptr1=dataptr1d, rc=rc)
+             if (chkerr(rc,__LINE__,u_FILE_u)) return
+          end if
        end if
     else
        if (stream_nlev == 1) then
           allocate(dataptr1d(1))
        else
-          call shr_sys_abort("ERROR: multi-level streams always require a stream mesh")
+          call shr_sys_abort("ERROR: multi-level streams always require a stream mesh or grid")
        end if
     end if
 
@@ -1715,8 +1766,32 @@ contains
                       dataptr1d(n) = r8fill
                    endif
                 enddo
+                print *, "DEBUG: read variable ", trim(per_stream%fldlist_stream(nf)), " size=", size(dataptr1d), &
+                     " min=", minval(dataptr1d, mask=(dataptr1d /= r8fill)), &
+                     " max=", maxval(dataptr1d, mask=(dataptr1d /= r8fill)), &
+                     " sum=", sum(dataptr1d, mask=(dataptr1d /= r8fill))
+
+                if (nf == 1) then
+                   print *, "DEBUG: Model Mesh Range: lon=", minval(sdat%model_lon), maxval(sdat%model_lon), &
+                        " lat=", minval(sdat%model_lat), maxval(sdat%model_lat)
+                   block
+                     real(r8), allocatable :: nodeCoords(:)
+                     integer :: numOwnedNodes
+                     call ESMF_MeshGet(sdat%model_mesh, numOwnedNodes=numOwnedNodes, rc=rc)
+                     if (rc == ESMF_SUCCESS .and. numOwnedNodes > 0) then
+                       allocate(nodeCoords(2*numOwnedNodes))
+                       call ESMF_MeshGet(sdat%model_mesh, ownedNodeCoords=nodeCoords, rc=rc)
+                       print *, "DEBUG: Model Mesh NODE Range: min=", minval(nodeCoords), " max=", maxval(nodeCoords)
+                       deallocate(nodeCoords)
+                     else
+                       print *, "DEBUG: Model Mesh numOwnedNodes=", numOwnedNodes
+                     endif
+                   end block
+                endif
              else
                 dataptr1d(:) = real(data_real1d(:),kind=r8)
+                print *, "DEBUG: read variable ", trim(per_stream%fldlist_stream(nf)), " size=", size(dataptr1d), &
+                     " min=", minval(dataptr1d), " max=", maxval(dataptr1d), " sum=", sum(dataptr1d)
              endif
           end if
 
@@ -1857,8 +1932,37 @@ contains
           ! Regrid the field_stream read in to the model mesh
           call dshr_fldbun_getfieldN(fldbun_data, nf, field_dst, rc=rc)
           if (chkerr(rc,__LINE__,u_FILE_u)) return
+
           call ESMF_FieldRegrid(per_stream%field_stream, field_dst, routehandle=per_stream%routehandle, &
                termorderflag=ESMF_TERMORDER_SRCSEQ, checkflag=.false., zeroregion=ESMF_REGION_TOTAL, rc=rc)
+
+          if (sdat%mainproc) then
+             block
+               real(r8), pointer :: dptr(:) => null()
+               real(r8) :: dmin, dmax, dsum
+               integer :: k, sz
+
+               call ESMF_FieldGet(field_dst, farrayPtr=dptr, rc=rc)
+               if (rc /= ESMF_SUCCESS) then
+                  print *, "DEBUG: ESMF_FieldGet(field_dst) failed with rc=", rc
+               else
+                  if (associated(dptr)) then
+                    sz = size(dptr)
+                    if (sz > 0) then
+                       dmin = minval(dptr)
+                       dmax = maxval(dptr)
+                       dsum = sum(dptr)
+                       print *, "DEBUG: post-regrid field_dst: size=", sz, " min=", dmin, " max=", dmax, " sum=", dsum
+                    else
+                       print *, "DEBUG: post-regrid field_dst: size=0"
+                    endif
+                  else
+                    print *, "DEBUG: field_dst pointer not associated"
+                  endif
+               endif
+             end block
+          endif
+
           if (chkerr(rc,__LINE__,u_FILE_u)) return
        else
           call dshr_fldbun_getfieldN(fldbun_data, nf, field_dst, rc=rc)
@@ -1998,7 +2102,13 @@ contains
     end do
 
     ! determine compdof for stream
-    call ESMF_MeshGet(per_stream%stream_mesh, elementdistGrid=distGrid, rc=rc)
+    if (ESMF_MeshIsCreated(per_stream%stream_mesh)) then
+       call ESMF_MeshGet(per_stream%stream_mesh, elementdistGrid=distGrid, rc=rc)
+    else if (ESMF_GridIsCreated(per_stream%stream_grid)) then
+       call ESMF_GridGet(per_stream%stream_grid, distGrid=distGrid, rc=rc)
+    else
+       rc = ESMF_FAILURE
+    end if
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
     call ESMF_DistGridGet(distGrid, localDe=0, elementCount=lsize, rc=rc)
     if (ChkErr(rc,__LINE__,u_FILE_u)) return
@@ -2183,4 +2293,135 @@ contains
     dow = modulo(day + y + y/4 - y/100 + y/400 + (31*m)/12, 7)
   end subroutine shr_cal_getdayofweek
 
+  subroutine shr_strdata_create_grid_from_netcdf(pio_subsystem, io_type, filename, stream_grid, rc)
+    type(iosystem_desc_t), pointer, intent(in) :: pio_subsystem
+    integer, intent(in) :: io_type
+    character(len=*), intent(in) :: filename
+    type(ESMF_Grid), intent(out) :: stream_grid
+    integer, intent(out) :: rc
+
+    type(file_desc_t) :: pioid
+    type(var_desc_t) :: lat_vid, lon_vid
+    integer :: rcode, status
+    integer :: nlat, nlon, ndims_lat, ndims_lon
+    integer :: dimids(2)
+    integer :: nx, ny
+    real(r8), allocatable :: lats1d(:), lons1d(:), lats2d(:,:), lons2d(:,:)
+    real(r8), pointer :: grid_lon(:,:), grid_lat(:,:)
+    type(ESMF_DistGrid) :: distgrid
+    integer :: localPet
+    logical :: mainproc
+
+    rc = ESMF_SUCCESS
+    rcode = pio_openfile(pio_subsystem, pioid, io_type, trim(filename), pio_nowrite)
+    if (rcode /= PIO_NOERR) then
+       rc = ESMF_FAILURE
+       return
+    end if
+
+    ! Try to find lat/lon variables
+    rcode = pio_inq_varid(pioid, 'lat', lat_vid)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'latitude', lat_vid)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'LAT', lat_vid)
+
+    rcode = pio_inq_varid(pioid, 'lon', lon_vid)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'longitude', lon_vid)
+    if (rcode /= PIO_NOERR) rcode = pio_inq_varid(pioid, 'LON', lon_vid)
+
+    ! Get dimensions
+    rcode = pio_inq_varndims(pioid, lat_vid, ndims_lat)
+    rcode = pio_inq_vardimid(pioid, lat_vid, dimids)
+    rcode = pio_inq_dimlen(pioid, dimids(1), nlat) ! Assume 1D for now or first dim
+    if (ndims_lat == 2) then
+       rcode = pio_inq_dimlen(pioid, dimids(2), nlon) ! If 2D lat(nlon, nlat) or lat(ny, nx)? CF usually y,x for 2D.
+       ! Let's handle 1D case primarily for MACCity
+       nx = nlon
+       ny = nlat
+       ! But wait, standard is lat(lat), lon(lon).
+    else
+       ny = nlat
+       rcode = pio_inq_varndims(pioid, lon_vid, ndims_lon)
+       rcode = pio_inq_vardimid(pioid, lon_vid, dimids)
+       rcode = pio_inq_dimlen(pioid, dimids(1), nx)
+    endif
+
+    ! Create DistGrid
+    distgrid = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/nx,ny/), rc=rc)
+
+    ! Create Grid
+    stream_grid = ESMF_GridCreate(distgrid, coordSys=ESMF_COORDSYS_SPH_DEG, &
+         gridEdgeLWidth=(/0,0/), gridEdgeUWidth=(/0,0/), rc=rc)
+
+    ! Add Coordinates
+    call ESMF_GridAddCoord(stream_grid, staggerloc=ESMF_STAGGERLOC_CENTER, rc=rc)
+
+    ! Allocate and read
+    allocate(lats1d(ny))
+    allocate(lons1d(nx))
+
+    ! Using pio_get_var to read entire variable (replicated)
+    ! Note: This assumes small enough grid to fit in memory on all tasks
+    ! Also assumes 1D coordinates for now as per MACCity file
+    status = pio_get_var(pioid, lat_vid, lats1d)
+    status = pio_get_var(pioid, lon_vid, lons1d)
+
+    ! Get pointers to Grid - moved inside loop in fill_grid_coords
+    ! call ESMF_GridGetCoord(stream_grid, coordDim=1, staggerloc=ESMF_STAGGERLOC_CENTER, &
+    !      farrayptr=grid_lon, rc=rc)
+    ! call ESMF_GridGetCoord(stream_grid, coordDim=2, staggerloc=ESMF_STAGGERLOC_CENTER, &
+    !      farrayptr=grid_lat, rc=rc)
+
+    ! Initialzie grid coordinates from 1D arrays (broadcast to 2D)
+
+    call fill_grid_coords(stream_grid, lons1d, lats1d, nx, ny, rc)
+
+    call pio_closefile(pioid)
+    deallocate(lats1d, lons1d)
+
+  end subroutine shr_strdata_create_grid_from_netcdf
+
+  subroutine fill_grid_coords(grid, lons1d, lats1d, nx, ny, rc)
+    type(ESMF_Grid), intent(in) :: grid
+    real(r8), intent(in) :: lons1d(:), lats1d(:)
+    integer, intent(in) :: nx, ny
+    integer, intent(out) :: rc
+
+    type(ESMF_DistGrid) :: distgrid
+    integer :: deCount, de, i, j
+    integer, allocatable :: lb(:), ub(:)
+    real(r8), pointer :: grid_lon(:,:), grid_lat(:,:)
+
+    call ESMF_GridGet(grid, distgrid=distgrid, rc=rc)
+    call ESMF_DistGridGet(distgrid, localDeCount=deCount, rc=rc)
+
+    print *, "DEBUG: fill_grid_coords: nx=", nx, " ny=", ny, &
+         " lons range:", minval(lons1d), maxval(lons1d), &
+         " lats range:", minval(lats1d), maxval(lats1d)
+
+    allocate(lb(2), ub(2))
+
+    do de = 0, deCount-1
+       ! Use computational bounds and staggerloc
+       call ESMF_GridGet(grid, localDe=de, staggerloc=ESMF_STAGGERLOC_CENTER, &
+            computationalLBound=lb, computationalUBound=ub, rc=rc)
+
+       call ESMF_GridGetCoord(grid, coordDim=1, localDe=de, staggerloc=ESMF_STAGGERLOC_CENTER, &
+            farrayptr=grid_lon, rc=rc)
+       call ESMF_GridGetCoord(grid, coordDim=2, localDe=de, staggerloc=ESMF_STAGGERLOC_CENTER, &
+            farrayptr=grid_lat, rc=rc)
+
+       do j = lb(2), ub(2)
+          do i = lb(1), ub(1)
+             if (i >= 1 .and. i <= nx .and. j >= 1 .and. j <= ny) then
+                ! Use lbound of pointer to safely offset
+                grid_lon(i - lb(1) + lbound(grid_lon, 1), j - lb(2) + lbound(grid_lon, 2)) = lons1d(i)
+                grid_lat(i - lb(1) + lbound(grid_lat, 1), j - lb(2) + lbound(grid_lat, 2)) = lats1d(j)
+             end if
+          enddo
+       enddo
+    enddo
+    deallocate(lb, ub)
+  end subroutine fill_grid_coords
+
 end module dshr_strdata_mod
+

@@ -65,7 +65,16 @@ extern "C" {
                 tide_stream_config_t& sc = cfg->streams[i];
 
                 sc.name = strdup(s["name"].as<std::string>().c_str());
-                sc.mesh_file = strdup(s["mesh_file"].as<std::string>().c_str());
+                if (s["lev_dimname"]) {
+                     std::cout << "DEBUG: lev_dimname: " << s["lev_dimname"].as<std::string>() << std::endl;
+                }
+
+                if (s["mesh_file"]) {
+                    sc.mesh_file = strdup(s["mesh_file"].as<std::string>().c_str());
+                } else {
+                    sc.mesh_file = strdup("none");
+                }
+
                 sc.lev_dimname = s["lev_dimname"] ? strdup(s["lev_dimname"].as<std::string>().c_str()) : strdup("null");
                 sc.tax_mode = s["tax_mode"] ? strdup(s["tax_mode"].as<std::string>().c_str()) : strdup("cycle");
                 sc.time_interp = s["time_interp"] ? strdup(s["time_interp"].as<std::string>().c_str()) : strdup("linear");
