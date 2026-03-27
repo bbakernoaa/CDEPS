@@ -162,8 +162,8 @@ contains
   !> @param rc            Return code: CF_SUCCESS, or specific CF_ERR_*
   subroutine cf_read_file_metadata(filename, pio_subsystem, io_type, cache, rc)
     use pio, only : iosystem_desc_t, file_desc_t, pio_openfile, pio_closefile, &
-                    pio_inq_varid, pio_inq_var, &
-                    pio_get_att, pio_inq_att, pio_inq, PIO_GLOBAL, PIO_NOERR, PIO_NOWRITE
+                    pio_inq_varid, pio_inquire_variable, pio_inquire_dimension, &
+                    pio_get_att, pio_inq_att, pio_inquire, pio_global, pio_noerr, pio_nowrite
     character(len=*),       intent(in)  :: filename
     type(iosystem_desc_t),  intent(in)  :: pio_subsystem
     integer,                intent(in)  :: io_type
@@ -191,8 +191,8 @@ contains
 
     rc = CF_SUCCESS
 
-    pio_rc = pio_openfile(pio_subsystem, pio_file, io_type, trim(filename), PIO_NOWRITE)
-    if (pio_rc /= PIO_NOERR) then
+    pio_rc = pio_openfile(pio_subsystem, pio_file, io_type, trim(filename), pio_nowrite)
+    if (pio_rc /= pio_noerr) then
       call cf_log(0, 'cf_read_file_metadata: Failed to open file: '//trim(filename))
       rc = CF_ERR_FILE_OPEN
       return
@@ -202,22 +202,20 @@ contains
     cache%ncid = pio_file%fh
 
     ! Check Conventions global attribute
-    pio_rc = pio_inq_att(pio_file, PIO_GLOBAL, 'Conventions', len=att_len)
-    if (pio_rc == PIO_NOERR) then
-      pio_rc = pio_get_att(pio_file, PIO_GLOBAL, 'Conventions', str_val)
-      if (pio_rc == PIO_NOERR) then
-        if (att_len > 0) then
-          att_len = min(att_len, len(str_val))
-          if (index(str_val(1:att_len), 'CF-1.6') > 0 .or. &
-              index(str_val(1:att_len), 'CF-1.7') > 0 .or. &
-              index(str_val(1:att_len), 'CF-1.8') > 0 .or. &
-              index(str_val(1:att_len), 'CF-1.9') > 0) then
-            cache%cf_version = trim(str_val(1:att_len))
-            cache%is_cf_compliant = .true.
-            call cf_log(2, 'cf_read_file_metadata: Detected CF Conventions: '//trim(str_val(1:att_len))//' for file: '//trim(filename))
-          else
-            call cf_log(1, 'cf_read_file_metadata: Non-CF Conventions detected: '//trim(str_val(1:att_len))//' for file: '//trim(filename))
-          end if
+    str_val = ''
+    pio_rc = pio_get_att(pio_file, pio_global, 'Conventions', str_val)
+    if (pio_rc == pio_noerr) then
+      att_len = len_trim(str_val)
+      if (att_len > 0) then
+        if (index(str_val(1:att_len), 'CF-1.6') > 0 .or. &
+            index(str_val(1:att_len), 'CF-1.7') > 0 .or. &
+            index(str_val(1:att_len), 'CF-1.8') > 0 .or. &
+            index(str_val(1:att_len), 'CF-1.9') > 0) then
+          cache%cf_version = trim(str_val(1:att_len))
+          cache%is_cf_compliant = .true.
+          call cf_log(2, 'cf_read_file_metadata: Detected CF Conventions: '//trim(str_val(1:att_len))//' for file: '//trim(filename))
+        else
+          call cf_log(1, 'cf_read_file_metadata: Non-CF Conventions detected: '//trim(str_val(1:att_len))//' for file: '//trim(filename))
         end if
       end if
     else
@@ -225,8 +223,8 @@ contains
     end if
 
     ! Inquire number of variables
-    pio_rc = pio_inq(pio_file, nvars=nvars)
-    if (pio_rc /= PIO_NOERR) then
+    pio_rc = pio_inquire(pio_file, nVariables=nvars)
+    if (pio_rc /= pio_noerr) then
       call cf_log(0, 'cf_read_file_metadata: Failed to inquire file: '//trim(filename))
       cache%ncid = 0
       call pio_closefile(pio_file)
@@ -240,8 +238,8 @@ contains
       allocate(cache%vars(nvars))
       do ivar = 1, nvars
         varid = ivar
-        pio_rc = pio_inq_var(pio_file, varid, name=vname, ndims=pio_ndims, dimids=pio_dimids)
-        if (pio_rc == PIO_NOERR) then
+        pio_rc = pio_inquire_variable(pio_file, varid, name=vname, ndims=pio_ndims, dimids=pio_dimids)
+        if (pio_rc == pio_noerr) then
           cache%vars(ivar)%var_name = trim(vname)
           cache%vars(ivar)%ndims = pio_ndims
           if (pio_ndims > 0) then
@@ -250,11 +248,11 @@ contains
 
           ! Read standard_name
           cache%vars(ivar)%has_standard_name = .false.
-          pio_rc = pio_inq_att(pio_file, varid, 'standard_name', len=att_len)
-          if (pio_rc == PIO_NOERR) then
-            pio_rc = pio_get_att(pio_file, varid, 'standard_name', str_val)
-            if (pio_rc == PIO_NOERR .and. att_len > 0) then
-              att_len = min(att_len, len(str_val))
+          str_val = ''
+          pio_rc = pio_get_att(pio_file, varid, 'standard_name', str_val)
+          if (pio_rc == pio_noerr) then
+            att_len = len_trim(str_val)
+            if (att_len > 0) then
               cache%vars(ivar)%standard_name = trim(str_val(1:att_len))
               cache%vars(ivar)%has_standard_name = .true.
             end if
@@ -262,11 +260,11 @@ contains
 
           ! Read long_name
           cache%vars(ivar)%has_long_name = .false.
-          pio_rc = pio_inq_att(pio_file, varid, 'long_name', len=att_len)
-          if (pio_rc == PIO_NOERR) then
-            pio_rc = pio_get_att(pio_file, varid, 'long_name', str_val)
-            if (pio_rc == PIO_NOERR .and. att_len > 0) then
-              att_len = min(att_len, len(str_val))
+          str_val = ''
+          pio_rc = pio_get_att(pio_file, varid, 'long_name', str_val)
+          if (pio_rc == pio_noerr) then
+            att_len = len_trim(str_val)
+            if (att_len > 0) then
               cache%vars(ivar)%long_name = trim(str_val(1:att_len))
               cache%vars(ivar)%has_long_name = .true.
             end if
@@ -274,11 +272,11 @@ contains
 
           ! Read units
           cache%vars(ivar)%has_units = .false.
-          pio_rc = pio_inq_att(pio_file, varid, 'units', len=att_len)
-          if (pio_rc == PIO_NOERR) then
-            pio_rc = pio_get_att(pio_file, varid, 'units', str_val)
-            if (pio_rc == PIO_NOERR .and. att_len > 0) then
-              att_len = min(att_len, len(str_val))
+          str_val = ''
+          pio_rc = pio_get_att(pio_file, varid, 'units', str_val)
+          if (pio_rc == pio_noerr) then
+            att_len = len_trim(str_val)
+            if (att_len > 0) then
               cache%vars(ivar)%units = trim(str_val(1:att_len))
               cache%vars(ivar)%has_units = .true.
             end if
@@ -286,11 +284,11 @@ contains
 
           ! Read coordinates
           cache%vars(ivar)%coordinates = ''
-          pio_rc = pio_inq_att(pio_file, varid, 'coordinates', len=att_len)
-          if (pio_rc == PIO_NOERR) then
-            pio_rc = pio_get_att(pio_file, varid, 'coordinates', str_val)
-            if (pio_rc == PIO_NOERR .and. att_len > 0) then
-              att_len = min(att_len, len(str_val))
+          str_val = ''
+          pio_rc = pio_get_att(pio_file, varid, 'coordinates', str_val)
+          if (pio_rc == pio_noerr) then
+            att_len = len_trim(str_val)
+            if (att_len > 0) then
               cache%vars(ivar)%coordinates = trim(str_val(1:att_len))
             end if
           end if
