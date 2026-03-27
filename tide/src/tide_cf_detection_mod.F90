@@ -191,7 +191,7 @@ contains
 
     rc = CF_SUCCESS
 
-    pio_rc = pio_openfile(pio_subsystem, pio_file, io_type, trim(filename))
+    pio_rc = pio_openfile(pio_subsystem, pio_file, io_type, trim(filename), 0)
     if (pio_rc /= pio_noerr) then
       call cf_log(0, 'cf_read_file_metadata: Failed to open file: '//trim(filename))
       rc = CF_ERR_FILE_OPEN
