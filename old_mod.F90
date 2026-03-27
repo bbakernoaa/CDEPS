@@ -443,8 +443,6 @@ contains
   ! ===========================================================================
 
   !> @brief Normalise a string: lowercase and collapse internal whitespace.
-  !> @param s The string to normalise.
-  !> @return The normalised string.
   pure function cf_normalize_string(s) result(out)
     character(len=*), intent(in) :: s
     character(len=256) :: out
@@ -453,8 +451,6 @@ contains
     out        = ''
     j          = 0
     prev_space = .true.  ! trim leading spaces
-
-    ! Iterate through characters, lowercasing and trimming spaces
     do i = 1, len_trim(s)
       ic = iachar(s(i:i))
       if (ic == 32 .or. ic == 9) then  ! space or tab
@@ -476,8 +472,6 @@ contains
   end function cf_normalize_string
 
   !> @brief Return .true. if the variable name is a standard coordinate name.
-  !> @param vname The variable name to check.
-  !> @return True if it is a coordinate name, false otherwise.
   pure function cf_is_coord_name(vname) result(res)
     character(len=*), intent(in) :: vname
     logical :: res
@@ -490,8 +484,6 @@ contains
   end function cf_is_coord_name
 
   !> @brief Return .true. if the standard_name identifies a coordinate variable.
-  !> @param sname The standard_name to check.
-  !> @return True if it is a standard coordinate name, false otherwise.
   pure function cf_is_coord_standard_name(sname) result(res)
     character(len=*), intent(in) :: sname
     logical :: res
@@ -504,9 +496,6 @@ contains
   end function cf_is_coord_standard_name
 
   !> @brief Return the axis label ("X","Y","Z","T") for a coordinate variable.
-  !> @param vname The variable name.
-  !> @param sname The standard name.
-  !> @return The axis label ("X","Y","Z","T" or empty string if not matched).
   pure function cf_coord_axis(vname, sname) result(axis)
     character(len=*), intent(in) :: vname, sname
     character(len=64) :: axis
@@ -535,9 +524,6 @@ contains
   !>
   !> This is a lightweight check covering common emission-inventory unit pairs.
   !> A full UDUNITS-2 integration would replace this in production.
-  !> @param u1 The first unit string.
-  !> @param u2 The second unit string.
-  !> @return True if the unit strings are dimensionally equivalent, false otherwise.
   pure function cf_units_equivalent(u1, u2) result(res)
     character(len=*), intent(in) :: u1, u2
     logical :: res

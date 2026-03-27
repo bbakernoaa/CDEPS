@@ -39,5 +39,34 @@ share/genf90
 __pycache__
 
 # TIDE build artifacts
-build/
+build*/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
 *_output.log
+
+# CMake specific
+CPackConfig.cmake
+CPackSourceConfig.cmake
+
+# C/C++ specific
+*.ilk
+*.meta
+*.pdb
+
+# Fortran specific
+*.smod
+*.i90
+*.lst
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
