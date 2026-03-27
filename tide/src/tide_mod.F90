@@ -114,7 +114,8 @@ contains
       ! Initialize CF detection if configured
       call tid_init_cf_detection_for_stream(s_cfg_ptr(i), rc)
       if (rc /= ESMF_SUCCESS) then
-        write(*,*) "WARNING: [TIDE] CF detection initialization failed for stream ", i, ". Falling back to using explicit mapping only."
+        write(*,*) "WARNING: [TIDE] CF detection initialization failed for stream ", i, &
+                   ". Falling back to using explicit mapping only."
       end if
 
       ! Apply CF detection and/or explicit field mapping
@@ -154,7 +155,8 @@ contains
       deallocate(file_names, fld_list_file, fld_list_model)
 
       if (rc /= ESMF_SUCCESS) then
-        write(*,*) "ERROR: [TIDE] Failed to initialize data stream ", i, " in DSHR_STRDATA. Check stream configuration and input files."
+        write(*,*) "ERROR: [TIDE] Failed to initialize data stream ", i, &
+                   " in DSHR_STRDATA. Check stream configuration and input files."
         return
       end if
     end do
@@ -312,7 +314,8 @@ contains
     end do
 
     ! Field not found in any stream
-    write(*,*) "WARNING: [TIDE] Data pointer requested for field '", trim(field_name), "' but it was not found in any initialized TIDE stream."
+    write(*,*) "WARNING: [TIDE] Data pointer requested for field '", trim(field_name), &
+               "' but it was not found in any initialized TIDE stream."
     rc = -1
 
   end subroutine tide_get_ptr
