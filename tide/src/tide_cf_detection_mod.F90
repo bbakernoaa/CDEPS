@@ -176,14 +176,14 @@ contains
     cache%nvars           = 0  ! no variables detected
     cache%cf_version      = ''
     cache%is_cf_compliant = .false.
-    
+
     rc = CF_SUCCESS
-    
+
     call cf_log(1, 'cf_read_file_metadata: Using simplified implementation, CF detection disabled for file: '//trim(filename))
-    
+
     ! TODO: Implement full PIO-based CF metadata reading in future iteration
     ! Currently falls back to explicit mapping as designed
-    
+
   end subroutine cf_read_file_metadata
 
   ! ===========================================================================
