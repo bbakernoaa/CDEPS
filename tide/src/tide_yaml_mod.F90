@@ -23,6 +23,9 @@ module tide_yaml_mod
     type(c_ptr) :: file_vars
     type(c_ptr) :: model_vars
     integer(c_int) :: num_fields
+    type(c_ptr) :: cf_detection_mode    !< CF detection mode: "auto", "strict", "disabled"
+    integer(c_int) :: cf_cache_enabled  !< Enable CF metadata caching (1=true, 0=false)
+    integer(c_int) :: cf_log_level      !< CF logging verbosity (0-3)
   end type tide_stream_config_t
 
   !> @brief Fortran representation of the C tide_config_t struct.

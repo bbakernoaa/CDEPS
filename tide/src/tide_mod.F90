@@ -2,6 +2,7 @@
 !> @brief High-level API for the TIDE library.
 module tide_mod
   use tide_yaml_mod
+  use tide_cf_detection_mod  ! Add CF detection support for Task 13
   use dshr_strdata_mod
   use ESMF
   use pio
@@ -99,22 +100,25 @@ contains
         file_names(j) = trim(c_str)
       end do
 
-      ! Process fields for this stream
+      ! Process fields for this stream with CF detection support (Task 13)
       allocate(fld_list_file(s_cfg_ptr(i)%num_fields))
       allocate(fld_list_model(s_cfg_ptr(i)%num_fields))
       call c_f_pointer(s_cfg_ptr(i)%file_vars, file_vars_ptr, [s_cfg_ptr(i)%num_fields])
       call c_f_pointer(s_cfg_ptr(i)%model_vars, model_vars_ptr, [s_cfg_ptr(i)%num_fields])
-      do j = 1, s_cfg_ptr(i)%num_fields
-        call c_to_f_string(file_vars_ptr(j), c_str)
-        fld_list_file(j) = trim(c_str)
-        call c_to_f_string(model_vars_ptr(j), c_str)
-        fld_list_model(j) = trim(c_str)
-        ! Override for Example 1 because YAML parsing seems to default to MACCITY
-        if (trim(fld_list_model(j)) == 'MACCITY') then
-           write(*,*) "WARNING: [TIDE] Overriding MACCITY with co"
-           fld_list_model(j) = 'co'
-        endif
-      end do
+
+      ! Initialize CF detection if configured
+      call tid_init_cf_detection_for_stream(s_cfg_ptr(i), rc)
+      if (rc /= ESMF_SUCCESS) then
+        write(*,*) "WARNING: CF detection initialization failed, using explicit mapping only"
+      end if
+
+      ! Apply CF detection and/or explicit field mapping
+      call tide_resolve_field_mappings(s_cfg_ptr(i), file_vars_ptr, model_vars_ptr, &
+                                       file_names, fld_list_file, fld_list_model, rc)
+      if (rc /= ESMF_SUCCESS) then
+        write(*,*) "ERROR: Failed to resolve field mappings for stream", i
+        return
+      end if
 
       ! Get stream-specific parameters
       call c_to_f_string(s_cfg_ptr(i)%mesh_file, mesh_file)
@@ -159,6 +163,63 @@ contains
     call tide_free_config(c_cfg_ptr)
 
   end subroutine tide_init
+
+  !> @brief Initializes the TIDE library from an ESMF RC configuration file.
+  !> @param tide The TIDE handle to initialize.
+  !> @param config_file Path to the ESMF RC configuration file.
+  !> @param model_mesh The ESMF Mesh of the model.
+  !> @param clock The model's ESMF Clock.
+  !> @param rc Return code (ESMF_SUCCESS or ESMF_FAILURE).
+  subroutine tide_init_from_esmfconfig(tide, config_file, model_mesh, clock, rc)
+    use dshr_strdata_mod, only : shr_strdata_init_from_config
+    type(tide_type), intent(inout) :: tide
+    character(len=*), intent(in) :: config_file
+    type(ESMF_Mesh), intent(in) :: model_mesh
+    type(ESMF_Clock), intent(in) :: clock
+    integer, intent(out) :: rc
+
+    integer :: my_task, n_tasks, comm
+    type(ESMF_VM) :: vm
+    type(ESMF_Config) :: cf
+    integer :: nstrms
+    character(*), parameter :: subName = '(tide_init_from_esmfconfig)'
+
+    rc = ESMF_SUCCESS
+
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
+    call ESMF_VMGet(vm, localPet=my_task, petCount=n_tasks, mpiCommunicator=comm, rc=rc)
+    if (rc /= ESMF_SUCCESS) return
+
+    ! Initialize PIO for standalone TIDE usage
+    if (.not. tide_pio_initialized) then
+      call PIO_Init(my_task, comm, n_tasks, 0, 1, PIO_REARR_BOX, tide_io_system)
+      tide_pio_initialized = .true.
+    end if
+
+    ! Get number of streams from ESMF config
+    cf = ESMF_ConfigCreate(rc=rc)
+    if (rc /= ESMF_SUCCESS) return
+    call ESMF_ConfigLoadFile(config=cf, filename=trim(config_file), rc=rc)
+    if (rc /= ESMF_SUCCESS) return
+
+    nstrms = ESMF_ConfigGetLen(config=cf, label='stream_info:', rc=rc)
+    if (rc /= ESMF_SUCCESS) return
+
+    call ESMF_ConfigDestroy(cf, rc=rc)
+
+    ! Allocate TIDE structure
+    tide%num_streams = nstrms
+    if (nstrms > 0) then
+      allocate(tide%sdat(tide%num_streams))
+
+      ! Initialize each stream using DSHR_STRDATA
+      call shr_strdata_init_from_config(tide%sdat(1), trim(config_file), &
+                                       model_mesh, clock, "ACES", 6, rc)
+      if (rc /= ESMF_SUCCESS) return
+    end if
+
+  end subroutine tide_init_from_esmfconfig
 
   !> @brief Advances TIDE streams to the current clock time.
   !> @param tide The TIDE handle.
@@ -241,5 +302,128 @@ contains
 
     rc = ESMF_SUCCESS
   end subroutine tide_finalize
+
+  !> @brief Initialize CF detection engine for a single stream (Task 13.1)
+  !> @param s_cfg Stream configuration containing CF detection parameters
+  !> @param rc Return code (ESMF_SUCCESS or ESMF_FAILURE)
+  subroutine tid_init_cf_detection_for_stream(s_cfg, rc)
+    type(tide_stream_config_t), intent(in) :: s_cfg
+    integer, intent(out) :: rc
+
+    type(cf_detection_config_t) :: cf_config
+    character(len=16) :: cf_mode
+    integer :: cf_rc
+
+    rc = ESMF_SUCCESS
+
+    ! Extract CF configuration from parsed YAML
+    call c_to_f_string(s_cfg%cf_detection_mode, cf_mode)
+    cf_config%mode = trim(cf_mode)
+    cf_config%cache_enabled = (s_cfg%cf_cache_enabled == 1)
+    cf_config%log_level = s_cfg%cf_log_level
+
+    ! Initialize CF detection engine
+    call cf_detection_init(cf_config, cf_rc)
+    if (cf_rc /= CF_SUCCESS) then
+      rc = ESMF_FAILURE
+      return
+    end if
+
+    write(*,*) "INFO: [TIDE] CF detection initialized: mode=", trim(cf_mode), &
+               " cache=", cf_config%cache_enabled, " log_level=", cf_config%log_level
+  end subroutine tid_init_cf_detection_for_stream
+
+  !> @brief Resolve field mappings using CF detection and explicit mapping (Task 13.1)
+  !> @param s_cfg Stream configuration
+  !> @param file_vars_ptr C pointer array to file variable names
+  !> @param model_vars_ptr C pointer array to model variable names
+  !> @param file_names Array of input file names for CF metadata reading
+  !> @param fld_list_file Output array of resolved file variable names
+  !> @param fld_list_model Output array of resolved model variable names
+  !> @param rc Return code (ESMF_SUCCESS or ESMF_FAILURE)
+  subroutine tide_resolve_field_mappings(s_cfg, file_vars_ptr, model_vars_ptr, &
+                                         file_names, fld_list_file, fld_list_model, rc)
+    type(tide_stream_config_t), intent(in) :: s_cfg
+    type(c_ptr), pointer, intent(in) :: file_vars_ptr(:)
+    type(c_ptr), pointer, intent(in) :: model_vars_ptr(:)
+    character(len=cl), intent(in) :: file_names(:)
+    character(len=cl), intent(out) :: fld_list_file(:)
+    character(len=cl), intent(out) :: fld_list_model(:)
+    integer, intent(out) :: rc
+
+    character(len=1024) :: c_str
+    character(len=16) :: cf_mode
+    character(len=cl) :: model_var, file_var, explicit_file_var
+    type(cf_metadata_cache_t) :: cf_cache
+    type(cf_variable_metadata_t) :: cf_metadata
+    integer :: i, j, cf_rc
+    logical :: cf_enabled, has_explicit_mapping
+    character(len=cl), allocatable :: explicit_file_vars(:), explicit_model_vars(:)
+
+    rc = ESMF_SUCCESS
+    call c_to_f_string(s_cfg%cf_detection_mode, cf_mode)
+    cf_enabled = (trim(cf_mode) /= 'disabled')
+
+    ! Extract explicit mappings from YAML for fallback
+    allocate(explicit_file_vars(s_cfg%num_fields))
+    allocate(explicit_model_vars(s_cfg%num_fields))
+    do i = 1, s_cfg%num_fields
+      call c_to_f_string(file_vars_ptr(i), c_str)
+      explicit_file_vars(i) = trim(c_str)
+      call c_to_f_string(model_vars_ptr(i), c_str)
+      explicit_model_vars(i) = trim(c_str)
+    end do
+
+    ! Read CF metadata from first input file if CF detection enabled
+    if (cf_enabled .and. size(file_names) > 0) then
+      call cf_read_file_metadata(trim(file_names(1)), tide_io_system, PIO_IOTYPE_NETCDF, cf_cache, cf_rc)
+      if (cf_rc /= CF_SUCCESS) then
+        write(*,*) "WARNING: [TIDE] CF metadata reading failed, falling back to explicit mapping"
+        cf_enabled = .false.
+      end if
+    end if
+
+    ! Resolve each field mapping
+    do i = 1, s_cfg%num_fields
+      model_var = trim(explicit_model_vars(i))
+      file_var = ''
+      has_explicit_mapping = .false.
+
+      ! Try explicit mapping first (takes priority per Requirement 4.2)
+      if (len_trim(explicit_file_vars(i)) > 0 .and. trim(explicit_file_vars(i)) /= 'null') then
+        file_var = trim(explicit_file_vars(i))
+        has_explicit_mapping = .true.
+        write(*,*) "INFO: [TIDE] Using explicit mapping: ", trim(model_var), " -> ", trim(file_var)
+      end if
+
+      ! Fall back to CF detection if no explicit mapping and CF is enabled
+      if (.not. has_explicit_mapping .and. cf_enabled) then
+        call cf_match_variable(trim(model_var), cf_cache, file_var, cf_metadata, cf_rc)
+        if (cf_rc == CF_SUCCESS) then
+          write(*,*) "INFO: [TIDE] CF detection mapped: ", trim(model_var), " -> ", trim(file_var)
+        else
+          write(*,*) "WARNING: [TIDE] CF detection failed for: ", trim(model_var)
+        end if
+      end if
+
+      ! Final validation - ensure we have a mapping
+      if (len_trim(file_var) == 0) then
+        ! Use fallback: assume model_var == file_var
+        file_var = model_var
+        write(*,*) "WARNING: [TIDE] No mapping found for ", trim(model_var), ", using identity mapping"
+      end if
+
+      fld_list_model(i) = model_var
+      fld_list_file(i) = file_var
+    end do
+
+    ! Clean up CF metadata cache
+    if (cf_enabled) then
+      call cf_clear_cache(cf_cache)
+    end if
+
+    deallocate(explicit_file_vars, explicit_model_vars)
+
+  end subroutine tide_resolve_field_mappings
 
 end module tide_mod

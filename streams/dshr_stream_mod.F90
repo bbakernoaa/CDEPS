@@ -110,6 +110,7 @@ module dshr_stream_mod
      integer           :: yearLast     = -1                     ! last  year to use in t-axis (yyyymmdd)
      integer           :: yearAlign    = -1                     ! align yearFirst with this model year
      character(CS)     :: lev_dimname  = 'null'                 ! name of vertical dimension if any
+     character(CS)     :: time_var     = 'time'                 ! name of time coordinate variable
      character(CS)     :: taxMode      = shr_stream_taxis_cycle ! cycling option for time axis
      character(CS)     :: tInterpAlgo  = 'linear'               ! algorithm to use for time interpolation
      character(CS)     :: mapalgo      = 'bilinear'             ! type of mapping - default is 'bilinear'
@@ -694,6 +695,12 @@ contains
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
       else
         call shr_sys_abort("stream_lev_dimname must be provided")
+      endif
+
+      ! Read time variable name (optional, defaults to 'time')
+      if( ESMF_ConfigGetLen(config=CF, label="time_var"//mystrm//':', rc=rc) > 0 ) then
+        call ESMF_ConfigGetAttribute(CF,value=streamdat(i)%time_var,label="time_var"//mystrm//':', rc=rc)
+        if (ChkErr(rc,__LINE__,u_FILE_u)) return
       endif
 
       ! Get a list of stream file names
@@ -1546,9 +1553,12 @@ contains
        write(strm%logunit, '(a)') trim(subname)//' reading stream filename = '//trim(filename)
     endif
 
-    rCode = pio_inq_varid(strm%file(k)%fileid, 'time', vid)
-    if(vid .lt. 0) then
-       call shr_sys_abort(subName//"ERROR: time variable id incorrect")
+    ! Use configured time variable name
+    call pio_seterrorhandling(strm%file(k)%fileid, PIO_BCAST_ERROR, old_handle)
+    rCode = pio_inq_varid(strm%file(k)%fileid, trim(strm%time_var), vid)
+    if(rCode .ne. PIO_NOERR) then
+       call pio_seterrorhandling(strm%file(k)%fileid, old_handle)
+       call shr_sys_abort(subName//"ERROR: Time variable '"//trim(strm%time_var)//"' not found in file")
     endif
     call pio_seterrorhandling(strm%file(k)%fileid, PIO_BCAST_ERROR, old_handle)
     rCode = pio_inq_att(strm%file(k)%fileid, vid, 'calendar', len=attlen)

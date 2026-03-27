@@ -2134,7 +2134,7 @@ contains
     ! determine io descriptor
     if (ndims == 2) then
        rcode = pio_inq_dimname(pioid, dimids(ndims), dimname)
-       if (trim(dimname) == 'time' .or. trim(dimname) == 'nt') then
+       if (trim(dimname) == 'time' .or. trim(dimname) == 'nt' .or. trim(dimname) == 'date') then
           if (sdat%mainproc) then
              write(sdat%stream(1)%logunit,F03) 'setting iodesc for : '//trim(fldname)// &
                   ' with dimlens(1) = ',dimlens(1),' and the variable has a time dimension '
@@ -2159,7 +2159,7 @@ contains
                ' variable has no time dimension '//trim(dimname)
           call pio_initdecomp(sdat%pio_subsystem, pio_iovartype, (/dimlens(1),dimlens(2),dimlens(3)/), compdof3d, &
                per_stream%stream_pio_iodesc)
-       else if (trim(dimname) == 'time' .or. trim(dimname) == 'nt') then
+       else if (trim(dimname) == 'time' .or. trim(dimname) == 'nt' .or. trim(dimname) == 'date') then
           if (sdat%mainproc) then
              write(sdat%stream(1)%logunit,F01) 'setting iodesc for : '//trim(fldname)// &
                   ' with dimlens(1), dimlens(2) = ',dimlens(1),dimlens(2),&
@@ -2171,7 +2171,7 @@ contains
 
     else if (ndims == 4) then
        rcode = pio_inq_dimname(pioid, dimids(ndims), dimname)
-       if (stream_nlev > 1 .and. (trim(dimname) == 'time' .or. trim(dimname) == 'nt')) then
+       if (stream_nlev > 1 .and. (trim(dimname) == 'time' .or. trim(dimname) == 'nt' .or. trim(dimname) == 'date')) then
           if (sdat%mainproc) then
              write(sdat%stream(1)%logunit,F02) 'setting iodesc for : '//trim(fldname)// &
                   ' with dimlens(1), dimlens(2),dimlens(3) = ',dimlens(1),dimlens(2),dimlens(3),&

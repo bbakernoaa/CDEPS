@@ -32,6 +32,9 @@ extern "C" {
         char** file_vars;
         char** model_vars;
         int num_fields;
+        char* cf_detection_mode;
+        int cf_cache_enabled;
+        int cf_log_level;
     } tide_stream_config_t;
 
     /**
@@ -101,6 +104,12 @@ extern "C" {
                     sc.file_vars[j] = strdup(fields[j]["file_var"].as<std::string>().c_str());
                     sc.model_vars[j] = strdup(fields[j]["model_var"].as<std::string>().c_str());
                 }
+
+                // CF detection configuration (Task 11)
+                sc.cf_detection_mode = s["cf_detection_mode"] ?
+                    strdup(s["cf_detection_mode"].as<std::string>().c_str()) : strdup("auto");
+                sc.cf_cache_enabled = s["cf_cache_enabled"] ? s["cf_cache_enabled"].as<bool>() ? 1 : 0 : 1;
+                sc.cf_log_level = s["cf_log_level"] ? s["cf_log_level"].as<int>() : 2;
             }
             return cfg;
         } catch (const std::exception& e) {
@@ -119,6 +128,7 @@ extern "C" {
             tide_stream_config_t& sc = cfg->streams[i];
             free(sc.name); free(sc.mesh_file); free(sc.lev_dimname);
             free(sc.tax_mode); free(sc.time_interp); free(sc.map_algo); free(sc.read_mode);
+            free(sc.cf_detection_mode);
             for (int j = 0; j < sc.num_files; ++j) free(sc.input_files[j]);
             delete[] sc.input_files;
             for (int j = 0; j < sc.num_fields; ++j) {
