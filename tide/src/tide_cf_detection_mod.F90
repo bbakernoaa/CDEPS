@@ -153,36 +153,155 @@ contains
 
   !> @brief Read all CF convention attributes from a NetCDF file into a cache.
   !>
-  !> Note: Simplified implementation for integration testing - full PIO implementation
-  !> to be completed in future iteration. Current version creates a minimal cache
-  !> to support fallback to explicit mapping.
+  !> Note: Full PIO implementation for CF convention metadata auto-detection.
   !>
   !> @param filename      Full path to the NetCDF file.
   !> @param pio_subsystem PIO I/O system descriptor.
   !> @param io_type       PIO I/O type (e.g. PIO_IOTYPE_NETCDF).
   !> @param cache         Output metadata cache populated by this routine.
-  !> @param rc            Return code: CF_SUCCESS always for now.
+  !> @param rc            Return code: CF_SUCCESS, or specific CF_ERR_*
   subroutine cf_read_file_metadata(filename, pio_subsystem, io_type, cache, rc)
-    use pio, only : iosystem_desc_t
+    use pio, only : iosystem_desc_t, file_desc_t, pio_openfile, pio_closefile, &
+                    pio_inq_varid, pio_inq_var, &
+                    pio_get_att, pio_inq_att, pio_inq, PIO_GLOBAL, PIO_NOERR, PIO_NOWRITE
     character(len=*),       intent(in)  :: filename
     type(iosystem_desc_t),  intent(in)  :: pio_subsystem
     integer,                intent(in)  :: io_type
     type(cf_metadata_cache_t), intent(out) :: cache
     integer,                intent(out) :: rc
 
-    ! Initialize minimal cache for fallback to explicit mapping
+    type(file_desc_t)  :: pio_file
+    integer            :: pio_rc, nvars, ivar, varid
+    character(len=256) :: vname, str_val
+    integer            :: att_len
+    integer            :: pio_ndims, pio_dimids(7)
+
+    ! Initialize minimal cache
     cache%filename        = trim(filename)
-    cache%ncid            = 0  ! closed/not opened
+    cache%ncid            = 0  ! Will update if opened successfully
     cache%nvars           = 0  ! no variables detected
     cache%cf_version      = ''
     cache%is_cf_compliant = .false.
 
+    if (.not. g_cf_initialized) then
+      call cf_log(0, 'cf_read_file_metadata: cf_detection_init not called')
+      rc = CF_ERR_NO_MATCH
+      return
+    end if
+
     rc = CF_SUCCESS
 
-    call cf_log(1, 'cf_read_file_metadata: Using simplified implementation, CF detection disabled for file: '//trim(filename))
+    pio_rc = pio_openfile(pio_subsystem, pio_file, io_type, trim(filename), PIO_NOWRITE)
+    if (pio_rc /= PIO_NOERR) then
+      call cf_log(0, 'cf_read_file_metadata: Failed to open file: '//trim(filename))
+      rc = CF_ERR_FILE_OPEN
+      return
+    end if
 
-    ! TODO: Implement full PIO-based CF metadata reading in future iteration
-    ! Currently falls back to explicit mapping as designed
+    ! Update cache with ncid
+    cache%ncid = pio_file%fh
+
+    ! Check Conventions global attribute
+    pio_rc = pio_inq_att(pio_file, PIO_GLOBAL, 'Conventions', len=att_len)
+    if (pio_rc == PIO_NOERR) then
+      pio_rc = pio_get_att(pio_file, PIO_GLOBAL, 'Conventions', str_val)
+      if (pio_rc == PIO_NOERR) then
+        if (att_len > 0) then
+          att_len = min(att_len, len(str_val))
+          if (index(str_val(1:att_len), 'CF-1.6') > 0 .or. &
+              index(str_val(1:att_len), 'CF-1.7') > 0 .or. &
+              index(str_val(1:att_len), 'CF-1.8') > 0 .or. &
+              index(str_val(1:att_len), 'CF-1.9') > 0) then
+            cache%cf_version = trim(str_val(1:att_len))
+            cache%is_cf_compliant = .true.
+            call cf_log(2, 'cf_read_file_metadata: Detected CF Conventions: '//trim(str_val(1:att_len))//' for file: '//trim(filename))
+          else
+            call cf_log(1, 'cf_read_file_metadata: Non-CF Conventions detected: '//trim(str_val(1:att_len))//' for file: '//trim(filename))
+          end if
+        end if
+      end if
+    else
+      call cf_log(1, 'cf_read_file_metadata: Missing Conventions global attribute for file: '//trim(filename))
+    end if
+
+    ! Inquire number of variables
+    pio_rc = pio_inq(pio_file, nvars=nvars)
+    if (pio_rc /= PIO_NOERR) then
+      call cf_log(0, 'cf_read_file_metadata: Failed to inquire file: '//trim(filename))
+      cache%ncid = 0
+      call pio_closefile(pio_file)
+      rc = CF_ERR_INVALID_FORMAT
+      return
+    end if
+
+    cache%nvars = nvars
+    if (allocated(cache%vars)) deallocate(cache%vars)
+    if (nvars > 0) then
+      allocate(cache%vars(nvars))
+      do ivar = 1, nvars
+        varid = ivar
+        pio_rc = pio_inq_var(pio_file, varid, name=vname, ndims=pio_ndims, dimids=pio_dimids)
+        if (pio_rc == PIO_NOERR) then
+          cache%vars(ivar)%var_name = trim(vname)
+          cache%vars(ivar)%ndims = pio_ndims
+          if (pio_ndims > 0) then
+            cache%vars(ivar)%dimids(1:pio_ndims) = pio_dimids(1:pio_ndims)
+          end if
+
+          ! Read standard_name
+          cache%vars(ivar)%has_standard_name = .false.
+          pio_rc = pio_inq_att(pio_file, varid, 'standard_name', len=att_len)
+          if (pio_rc == PIO_NOERR) then
+            pio_rc = pio_get_att(pio_file, varid, 'standard_name', str_val)
+            if (pio_rc == PIO_NOERR .and. att_len > 0) then
+              att_len = min(att_len, len(str_val))
+              cache%vars(ivar)%standard_name = trim(str_val(1:att_len))
+              cache%vars(ivar)%has_standard_name = .true.
+            end if
+          end if
+
+          ! Read long_name
+          cache%vars(ivar)%has_long_name = .false.
+          pio_rc = pio_inq_att(pio_file, varid, 'long_name', len=att_len)
+          if (pio_rc == PIO_NOERR) then
+            pio_rc = pio_get_att(pio_file, varid, 'long_name', str_val)
+            if (pio_rc == PIO_NOERR .and. att_len > 0) then
+              att_len = min(att_len, len(str_val))
+              cache%vars(ivar)%long_name = trim(str_val(1:att_len))
+              cache%vars(ivar)%has_long_name = .true.
+            end if
+          end if
+
+          ! Read units
+          cache%vars(ivar)%has_units = .false.
+          pio_rc = pio_inq_att(pio_file, varid, 'units', len=att_len)
+          if (pio_rc == PIO_NOERR) then
+            pio_rc = pio_get_att(pio_file, varid, 'units', str_val)
+            if (pio_rc == PIO_NOERR .and. att_len > 0) then
+              att_len = min(att_len, len(str_val))
+              cache%vars(ivar)%units = trim(str_val(1:att_len))
+              cache%vars(ivar)%has_units = .true.
+            end if
+          end if
+
+          ! Read coordinates
+          cache%vars(ivar)%coordinates = ''
+          pio_rc = pio_inq_att(pio_file, varid, 'coordinates', len=att_len)
+          if (pio_rc == PIO_NOERR) then
+            pio_rc = pio_get_att(pio_file, varid, 'coordinates', str_val)
+            if (pio_rc == PIO_NOERR .and. att_len > 0) then
+              att_len = min(att_len, len(str_val))
+              cache%vars(ivar)%coordinates = trim(str_val(1:att_len))
+            end if
+          end if
+        else
+          call cf_log(1, 'cf_read_file_metadata: Failed to inquire variable')
+        end if
+      end do
+    end if
+
+    call pio_closefile(pio_file)
+    cache%ncid = 0
 
   end subroutine cf_read_file_metadata
 
