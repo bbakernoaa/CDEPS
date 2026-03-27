@@ -163,7 +163,8 @@ contains
   subroutine cf_read_file_metadata(filename, pio_subsystem, io_type, cache, rc)
     use pio, only : iosystem_desc_t, file_desc_t, pio_openfile, pio_closefile, &
                     pio_inq_varid, pio_inquire_variable, pio_inquire_dimension, &
-                    pio_get_att, pio_inq_att, pio_inquire, pio_global, pio_noerr, pio_nowrite
+                    pio_get_att, pio_inq_att, pio_inquire, pio_global, pio_noerr, pio_nowrite, &
+                    pio_seterrorhandling, pio_bcast_error
     character(len=*),       intent(in)  :: filename
     type(iosystem_desc_t),  intent(inout) :: pio_subsystem
     integer,                intent(in)  :: io_type
@@ -172,6 +173,7 @@ contains
 
     type(file_desc_t), target :: pio_file
     integer            :: pio_rc, nvars, ivar, varid
+    integer            :: old_handle
     character(len=256) :: vname, str_val
     integer            :: att_len
     integer            :: pio_ndims, pio_dimids(7)
@@ -201,23 +203,29 @@ contains
     ! Update cache with ncid
     cache%ncid = pio_file%fh
 
+    ! Set error handling so missing attributes return errors rather than aborting MPI
+    call pio_seterrorhandling(pio_file, pio_bcast_error, old_handle)
+
     ! Check Conventions global attribute
-    str_val = ''
-    pio_rc = pio_get_att(pio_file, pio_global, 'Conventions', str_val)
+    pio_rc = pio_inq_att(pio_file, pio_global, 'Conventions', len=att_len)
     if (pio_rc == pio_noerr) then
-      att_len = len_trim(str_val)
-      if (att_len > 0) then
-        if (index(str_val(1:att_len), 'CF-1.6') > 0 .or. &
-            index(str_val(1:att_len), 'CF-1.7') > 0 .or. &
-            index(str_val(1:att_len), 'CF-1.8') > 0 .or. &
-            index(str_val(1:att_len), 'CF-1.9') > 0) then
-          cache%cf_version = trim(str_val(1:att_len))
-          cache%is_cf_compliant = .true.
-          call cf_log(2, 'cf_read_file_metadata: Detected CF Conventions: '// &
-                         trim(str_val(1:att_len))//' for file: '//trim(filename))
-        else
-          call cf_log(1, 'cf_read_file_metadata: Non-CF Conventions detected: '// &
-                         trim(str_val(1:att_len))//' for file: '//trim(filename))
+      str_val = ''
+      pio_rc = pio_get_att(pio_file, pio_global, 'Conventions', str_val)
+      if (pio_rc == pio_noerr) then
+        att_len = len_trim(str_val)
+        if (att_len > 0) then
+          if (index(str_val(1:att_len), 'CF-1.6') > 0 .or. &
+              index(str_val(1:att_len), 'CF-1.7') > 0 .or. &
+              index(str_val(1:att_len), 'CF-1.8') > 0 .or. &
+              index(str_val(1:att_len), 'CF-1.9') > 0) then
+            cache%cf_version = trim(str_val(1:att_len))
+            cache%is_cf_compliant = .true.
+            call cf_log(2, 'cf_read_file_metadata: Detected CF Conventions: '// &
+                           trim(str_val(1:att_len))//' for file: '//trim(filename))
+          else
+            call cf_log(1, 'cf_read_file_metadata: Non-CF Conventions detected: '// &
+                           trim(str_val(1:att_len))//' for file: '//trim(filename))
+          end if
         end if
       end if
     else
@@ -250,48 +258,60 @@ contains
 
           ! Read standard_name
           cache%vars(ivar)%has_standard_name = .false.
-          str_val = ''
-          pio_rc = pio_get_att(pio_file, varid, 'standard_name', str_val)
+          pio_rc = pio_inq_att(pio_file, varid, 'standard_name', len=att_len)
           if (pio_rc == pio_noerr) then
-            att_len = len_trim(str_val)
-            if (att_len > 0) then
-              cache%vars(ivar)%standard_name = trim(str_val(1:att_len))
-              cache%vars(ivar)%has_standard_name = .true.
+            str_val = ''
+            pio_rc = pio_get_att(pio_file, varid, 'standard_name', str_val)
+            if (pio_rc == pio_noerr) then
+              att_len = len_trim(str_val)
+              if (att_len > 0) then
+                cache%vars(ivar)%standard_name = trim(str_val(1:att_len))
+                cache%vars(ivar)%has_standard_name = .true.
+              end if
             end if
           end if
 
           ! Read long_name
           cache%vars(ivar)%has_long_name = .false.
-          str_val = ''
-          pio_rc = pio_get_att(pio_file, varid, 'long_name', str_val)
+          pio_rc = pio_inq_att(pio_file, varid, 'long_name', len=att_len)
           if (pio_rc == pio_noerr) then
-            att_len = len_trim(str_val)
-            if (att_len > 0) then
-              cache%vars(ivar)%long_name = trim(str_val(1:att_len))
-              cache%vars(ivar)%has_long_name = .true.
+            str_val = ''
+            pio_rc = pio_get_att(pio_file, varid, 'long_name', str_val)
+            if (pio_rc == pio_noerr) then
+              att_len = len_trim(str_val)
+              if (att_len > 0) then
+                cache%vars(ivar)%long_name = trim(str_val(1:att_len))
+                cache%vars(ivar)%has_long_name = .true.
+              end if
             end if
           end if
 
           ! Read units
           cache%vars(ivar)%has_units = .false.
-          str_val = ''
-          pio_rc = pio_get_att(pio_file, varid, 'units', str_val)
+          pio_rc = pio_inq_att(pio_file, varid, 'units', len=att_len)
           if (pio_rc == pio_noerr) then
-            att_len = len_trim(str_val)
-            if (att_len > 0) then
-              cache%vars(ivar)%units = trim(str_val(1:att_len))
-              cache%vars(ivar)%has_units = .true.
+            str_val = ''
+            pio_rc = pio_get_att(pio_file, varid, 'units', str_val)
+            if (pio_rc == pio_noerr) then
+              att_len = len_trim(str_val)
+              if (att_len > 0) then
+                cache%vars(ivar)%units = trim(str_val(1:att_len))
+                cache%vars(ivar)%has_units = .true.
+              end if
             end if
           end if
 
           ! Read coordinates
           cache%vars(ivar)%coordinates = ''
-          str_val = ''
-          pio_rc = pio_get_att(pio_file, varid, 'coordinates', str_val)
+          pio_rc = pio_inq_att(pio_file, varid, 'coordinates', len=att_len)
           if (pio_rc == pio_noerr) then
-            att_len = len_trim(str_val)
-            if (att_len > 0) then
-              cache%vars(ivar)%coordinates = trim(str_val(1:att_len))
+            str_val = ''
+            pio_rc = pio_get_att(pio_file, varid, 'coordinates', str_val)
+            if (pio_rc == pio_noerr) then
+              att_len = len_trim(str_val)
+              if (att_len > 0) then
+                cache%vars(ivar)%coordinates = trim(str_val(1:att_len))
+              end if
             end if
           end if
         else
@@ -299,6 +319,9 @@ contains
         end if
       end do
     end if
+
+    ! Restore old error handling
+    call pio_seterrorhandling(pio_file, old_handle)
 
     call pio_closefile(pio_file)
     cache%ncid = 0
