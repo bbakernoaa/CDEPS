@@ -53,8 +53,14 @@ extern "C" {
      */
     tide_config_t* tide_parse_yaml(const char* filename) {
         try {
+            // Load YAML file
             YAML::Node config = YAML::LoadFile(filename);
-            if (!config["streams"]) return nullptr;
+
+            // Ensure streams key exists
+            if (!config["streams"]) {
+                std::cerr << "ERROR: [TIDE] 'streams' key missing from YAML configuration file: " << filename << std::endl;
+                return nullptr;
+            }
 
             auto streams_node = config["streams"];
             int num_streams = streams_node.size();
@@ -63,11 +69,15 @@ extern "C" {
             cfg->num_streams = num_streams;
             cfg->streams = new tide_stream_config_t[num_streams];
 
+            // Parse each stream configuration
             for (int i = 0; i < num_streams; ++i) {
                 auto s = streams_node[i];
                 tide_stream_config_t& sc = cfg->streams[i];
 
+                // Mandatory string attributes (no default)
                 sc.name = strdup(s["name"].as<std::string>().c_str());
+
+                // Optional attributes with defaults
                 if (s["lev_dimname"]) {
                      std::cout << "DEBUG: lev_dimname: " << s["lev_dimname"].as<std::string>() << std::endl;
                 }
@@ -89,6 +99,7 @@ extern "C" {
                 sc.year_align = s["year_align"].as<int>();
                 sc.offset = s["offset"] ? s["offset"].as<int>() : 0;
 
+                // Parse input files list
                 auto files = s["input_files"];
                 sc.num_files = files.size();
                 sc.input_files = new char*[sc.num_files];
@@ -96,6 +107,7 @@ extern "C" {
                     sc.input_files[j] = strdup(files[j].as<std::string>().c_str());
                 }
 
+                // Parse field maps list
                 auto fields = s["field_maps"];
                 sc.num_fields = fields.size();
                 sc.file_vars = new char*[sc.num_fields];
@@ -112,8 +124,17 @@ extern "C" {
                 sc.cf_log_level = s["cf_log_level"] ? s["cf_log_level"].as<int>() : 2;
             }
             return cfg;
+        } catch (const YAML::BadFile& e) {
+            std::cerr << "ERROR: [TIDE] Failed to load YAML configuration file: " << filename << ". " << e.what() << std::endl;
+            return nullptr;
+        } catch (const YAML::ParserException& e) {
+            std::cerr << "ERROR: [TIDE] YAML Parsing Error in file " << filename << ": " << e.what() << std::endl;
+            return nullptr;
+        } catch (const YAML::Exception& e) {
+            std::cerr << "ERROR: [TIDE] YAML Exception while reading " << filename << ": " << e.what() << std::endl;
+            return nullptr;
         } catch (const std::exception& e) {
-            std::cerr << "TIDE YAML Error: " << e.what() << std::endl;
+            std::cerr << "ERROR: [TIDE] Unexpected error parsing YAML file " << filename << ": " << e.what() << std::endl;
             return nullptr;
         }
     }
@@ -124,6 +145,8 @@ extern "C" {
      */
     void tide_free_config(tide_config_t* cfg) {
         if (!cfg) return;
+
+        // Free memory for each stream
         for (int i = 0; i < cfg->num_streams; ++i) {
             tide_stream_config_t& sc = cfg->streams[i];
             free(sc.name); free(sc.mesh_file); free(sc.lev_dimname);

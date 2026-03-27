@@ -36,6 +36,8 @@ module tide_yaml_mod
 
   interface
     !> @brief Parses a YAML file via the C++ interface.
+    !> @param filename Null-terminated C string representing the path to the YAML file.
+    !> @return Pointer to the parsed tide_config_t struct.
     function tide_parse_yaml(filename) bind(c, name="tide_parse_yaml")
       use, intrinsic :: iso_c_binding
       type(c_ptr), value :: filename !< Null-terminated C string
@@ -43,6 +45,7 @@ module tide_yaml_mod
     end function tide_parse_yaml
 
     !> @brief Frees the configuration via the C++ interface.
+    !> @param cfg Pointer to the tide_config_t struct to be freed.
     subroutine tide_free_config(cfg) bind(c, name="tide_free_config")
       use, intrinsic :: iso_c_binding
       type(c_ptr), value :: cfg !< Pointer to tide_config_t
@@ -60,6 +63,7 @@ contains
     character(kind=c_char), pointer :: p(:)
     integer :: i, n
 
+    ! Check if the C pointer is valid
     if (.not. c_associated(cptr)) then
       fstr = ' '
       return
@@ -68,6 +72,8 @@ contains
     n = len(fstr)
     call c_f_pointer(cptr, p, [n])
     fstr = ' '
+
+    ! Copy characters until null terminator is found
     do i = 1, n
       if (p(i) == c_null_char) exit
       fstr(i:i) = p(i)

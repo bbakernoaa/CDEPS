@@ -62,14 +62,19 @@ contains
     end do
     c_config_yaml(len(trim(config_yaml))+1) = c_null_char
 
+    ! Parse YAML configuration file
     c_cfg_ptr = tide_parse_yaml(c_loc(c_config_yaml))
     if (.not. c_associated(c_cfg_ptr)) then
+      write(*,*) "ERROR: [TIDE] Failed to parse YAML configuration file: ", trim(config_yaml)
       rc = ESMF_FAILURE
       return
     end if
     call c_f_pointer(c_cfg_ptr, cfg)
 
-    if (cfg%num_streams < 1) return
+    if (cfg%num_streams < 1) then
+      write(*,*) "WARNING: [TIDE] No streams found in YAML configuration file: ", trim(config_yaml)
+      return
+    end if
     call c_f_pointer(cfg%streams, s_cfg_ptr, [cfg%num_streams])
 
     call ESMF_VMGetCurrent(vm, rc=rc)
@@ -109,14 +114,14 @@ contains
       ! Initialize CF detection if configured
       call tid_init_cf_detection_for_stream(s_cfg_ptr(i), rc)
       if (rc /= ESMF_SUCCESS) then
-        write(*,*) "WARNING: CF detection initialization failed, using explicit mapping only"
+        write(*,*) "WARNING: [TIDE] CF detection initialization failed for stream ", i, ". Falling back to using explicit mapping only."
       end if
 
       ! Apply CF detection and/or explicit field mapping
       call tide_resolve_field_mappings(s_cfg_ptr(i), file_vars_ptr, model_vars_ptr, &
                                        file_names, fld_list_file, fld_list_model, rc)
       if (rc /= ESMF_SUCCESS) then
-        write(*,*) "ERROR: Failed to resolve field mappings for stream", i
+        write(*,*) "ERROR: [TIDE] Failed to resolve field mappings for stream ", i, ". Please check your field definitions."
         return
       end if
 
@@ -137,7 +142,7 @@ contains
 
       write(*,*) "INFO: [TIDE] Initializing stream", i, "with", s_cfg_ptr(i)%num_fields, "fields"
 
-      ! Initialize this stream
+      ! Initialize this stream using DSHR_STRDATA
       call shr_strdata_init_from_inline(tide%sdat(i), my_task, 6, "TIDE", &
            clock, model_mesh, trim(mesh_file), "null", trim(map_algo), &
            file_names, fld_list_file, fld_list_model, &
@@ -149,7 +154,7 @@ contains
       deallocate(file_names, fld_list_file, fld_list_model)
 
       if (rc /= ESMF_SUCCESS) then
-        write(*,*) "ERROR: Failed to initialize TIDE stream", i
+        write(*,*) "ERROR: [TIDE] Failed to initialize data stream ", i, " in DSHR_STRDATA. Check stream configuration and input files."
         return
       end if
     end do
@@ -187,9 +192,15 @@ contains
     rc = ESMF_SUCCESS
 
     call ESMF_VMGetCurrent(vm, rc=rc)
-    if (rc /= ESMF_SUCCESS) return
+    if (rc /= ESMF_SUCCESS) then
+      write(*,*) "ERROR: [TIDE] Failed to get current ESMF Virtual Machine."
+      return
+    end if
     call ESMF_VMGet(vm, localPet=my_task, petCount=n_tasks, mpiCommunicator=comm, rc=rc)
-    if (rc /= ESMF_SUCCESS) return
+    if (rc /= ESMF_SUCCESS) then
+      write(*,*) "ERROR: [TIDE] Failed to get ESMF Virtual Machine parameters."
+      return
+    end if
 
     ! Initialize PIO for standalone TIDE usage
     if (.not. tide_pio_initialized) then
@@ -199,12 +210,21 @@ contains
 
     ! Get number of streams from ESMF config
     cf = ESMF_ConfigCreate(rc=rc)
-    if (rc /= ESMF_SUCCESS) return
+    if (rc /= ESMF_SUCCESS) then
+      write(*,*) "ERROR: [TIDE] Failed to create ESMF Config object."
+      return
+    end if
     call ESMF_ConfigLoadFile(config=cf, filename=trim(config_file), rc=rc)
-    if (rc /= ESMF_SUCCESS) return
+    if (rc /= ESMF_SUCCESS) then
+      write(*,*) "ERROR: [TIDE] Failed to load ESMF Config file: ", trim(config_file)
+      return
+    end if
 
     nstrms = ESMF_ConfigGetLen(config=cf, label='stream_info:', rc=rc)
-    if (rc /= ESMF_SUCCESS) return
+    if (rc /= ESMF_SUCCESS) then
+      write(*,*) "ERROR: [TIDE] Failed to get length of 'stream_info:' from ESMF Config file."
+      return
+    end if
 
     call ESMF_ConfigDestroy(cf, rc=rc)
 
@@ -216,7 +236,10 @@ contains
       ! Initialize each stream using DSHR_STRDATA
       call shr_strdata_init_from_config(tide%sdat(1), trim(config_file), &
                                        model_mesh, clock, "ACES", 6, rc)
-      if (rc /= ESMF_SUCCESS) return
+      if (rc /= ESMF_SUCCESS) then
+        write(*,*) "ERROR: [TIDE] Failed to initialize stream from ESMF Config file."
+        return
+      end if
     end if
 
   end subroutine tide_init_from_esmfconfig
@@ -237,11 +260,17 @@ contains
 
     ! Get current time from clock
     call ESMF_ClockGet(clock, currTime=currTime, rc=rc)
-    if (rc /= ESMF_SUCCESS) return
+    if (rc /= ESMF_SUCCESS) then
+      write(*,*) "ERROR: [TIDE] Failed to get current time from ESMF Clock."
+      return
+    end if
 
     ! Extract YMD and TOD for the interpolation logic
     call ESMF_TimeGet(currTime, yy=yy, mm=mm, dd=dd, s=tod, rc=rc)
-    if (rc /= ESMF_SUCCESS) return
+    if (rc /= ESMF_SUCCESS) then
+      write(*,*) "ERROR: [TIDE] Failed to extract year, month, day, and seconds from ESMF Time."
+      return
+    end if
 
     ! Clamp year to available data range
     if (yy < tide%year_first) yy = tide%year_first
@@ -253,7 +282,7 @@ contains
     do i = 1, tide%num_streams
       call shr_strdata_advance(tide%sdat(i), ymd, tod, 6, "TIDE", rc=rc)
       if (rc /= ESMF_SUCCESS) then
-        write(*,*) "ERROR: Failed to advance TIDE stream", i
+        write(*,*) "ERROR: [TIDE] Failed to advance TIDE stream ", i, " to current time."
         return
       end if
     end do
@@ -283,7 +312,7 @@ contains
     end do
 
     ! Field not found in any stream
-    write(*,*) "WARNING: Field", trim(field_name), "not found in any TIDE stream"
+    write(*,*) "WARNING: [TIDE] Data pointer requested for field '", trim(field_name), "' but it was not found in any initialized TIDE stream."
     rc = -1
 
   end subroutine tide_get_ptr
@@ -325,6 +354,7 @@ contains
     ! Initialize CF detection engine
     call cf_detection_init(cf_config, cf_rc)
     if (cf_rc /= CF_SUCCESS) then
+      write(*,*) "ERROR: [TIDE] CF detection engine initialization failed with return code ", cf_rc
       rc = ESMF_FAILURE
       return
     end if
