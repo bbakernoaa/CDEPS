@@ -213,9 +213,11 @@ contains
             index(str_val(1:att_len), 'CF-1.9') > 0) then
           cache%cf_version = trim(str_val(1:att_len))
           cache%is_cf_compliant = .true.
-          call cf_log(2, 'cf_read_file_metadata: Detected CF Conventions: '//trim(str_val(1:att_len))//' for file: '//trim(filename))
+          call cf_log(2, 'cf_read_file_metadata: Detected CF Conventions: '// &
+                         trim(str_val(1:att_len))//' for file: '//trim(filename))
         else
-          call cf_log(1, 'cf_read_file_metadata: Non-CF Conventions detected: '//trim(str_val(1:att_len))//' for file: '//trim(filename))
+          call cf_log(1, 'cf_read_file_metadata: Non-CF Conventions detected: '// &
+                         trim(str_val(1:att_len))//' for file: '//trim(filename))
         end if
       end if
     else
