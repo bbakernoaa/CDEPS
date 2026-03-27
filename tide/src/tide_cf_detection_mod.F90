@@ -163,7 +163,7 @@ contains
   subroutine cf_read_file_metadata(filename, pio_subsystem, io_type, cache, rc)
     use pio, only : iosystem_desc_t, file_desc_t, pio_openfile, pio_closefile, &
                     pio_inq_varid, pio_inquire_variable, pio_inquire_dimension, &
-                    pio_get_att, pio_inq_att, pio_inquire, pio_global, pio_noerr, pio_nowrite
+                    pio_get_att, pio_inq_att, pio_inquire, pio_global, pio_noerr
     character(len=*),       intent(in)  :: filename
     type(iosystem_desc_t),  intent(in)  :: pio_subsystem
     integer,                intent(in)  :: io_type
@@ -191,7 +191,7 @@ contains
 
     rc = CF_SUCCESS
 
-    pio_rc = pio_openfile(pio_subsystem, pio_file, io_type, trim(filename), pio_nowrite)
+    pio_rc = pio_openfile(pio_subsystem, pio_file, io_type, trim(filename))
     if (pio_rc /= pio_noerr) then
       call cf_log(0, 'cf_read_file_metadata: Failed to open file: '//trim(filename))
       rc = CF_ERR_FILE_OPEN
