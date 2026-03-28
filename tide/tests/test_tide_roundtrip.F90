@@ -28,26 +28,47 @@ program test_tide_roundtrip
 
   ! Only task 0 writes the data file
   if (my_task == 0) then
-    ! Create dummy data file
-    cf_rc = nf90_create(trim(data_file), NF90_CLOBBER, ncid)
-    cf_rc = nf90_put_att(ncid, NF90_GLOBAL, 'Conventions', 'CF-1.8')
-    cf_rc = nf90_def_dim(ncid, 'time', NF90_UNLIMITED, dimid)
-    cf_rc = nf90_def_var(ncid, 'time', NF90_DOUBLE, [dimid], varid)
+    block
+      integer :: lat_dimid, lon_dimid, time_dimid
+      ! Create dummy data file
+      cf_rc = nf90_create(trim(data_file), NF90_CLOBBER, ncid)
+      cf_rc = nf90_put_att(ncid, NF90_GLOBAL, 'Conventions', 'CF-1.8')
+      cf_rc = nf90_def_dim(ncid, 'time', NF90_UNLIMITED, time_dimid)
+    cf_rc = nf90_def_dim(ncid, 'lat', 1, lat_dimid)
+    cf_rc = nf90_def_dim(ncid, 'lon', 1, lon_dimid)
+
+    cf_rc = nf90_def_var(ncid, 'time', NF90_DOUBLE, [time_dimid], varid)
     cf_rc = nf90_put_att(ncid, varid, 'units', 'days since 2000-01-01 00:00:00')
     cf_rc = nf90_put_att(ncid, varid, 'calendar', 'noleap')
 
-    cf_rc = nf90_def_var(ncid, 'so2_flux_var', NF90_DOUBLE, [dimid], varid)
+    cf_rc = nf90_def_var(ncid, 'lat', NF90_DOUBLE, [lat_dimid], varid)
+    cf_rc = nf90_put_att(ncid, varid, 'units', 'degrees_north')
+
+    cf_rc = nf90_def_var(ncid, 'lon', NF90_DOUBLE, [lon_dimid], varid)
+    cf_rc = nf90_put_att(ncid, varid, 'units', 'degrees_east')
+
+    cf_rc = nf90_def_var(ncid, 'so2_flux_var', NF90_DOUBLE, [lon_dimid, lat_dimid, time_dimid], varid)
     cf_rc = nf90_put_att(ncid, varid, 'units', 'kg m-2 s-1')
     cf_rc = nf90_put_att(ncid, varid, 'standard_name', 'so2_flux_std')
+    cf_rc = nf90_put_att(ncid, varid, 'coordinates', 'lon lat time')
     cf_rc = nf90_enddef(ncid)
 
     ! Write 2 time steps:
     cf_rc = nf90_inq_varid(ncid, 'time', varid)
     cf_rc = nf90_put_var(ncid, varid, [0.0d0, 1.0d0])
 
-    cf_rc = nf90_inq_varid(ncid, 'so2_flux_var', varid)
-    cf_rc = nf90_put_var(ncid, varid, [1.0d0, 2.0d0])
-    cf_rc = nf90_close(ncid)
+    cf_rc = nf90_inq_varid(ncid, 'lat', varid)
+    cf_rc = nf90_put_var(ncid, varid, [0.0d0])
+
+    cf_rc = nf90_inq_varid(ncid, 'lon', varid)
+    cf_rc = nf90_put_var(ncid, varid, [0.0d0])
+
+      cf_rc = nf90_inq_varid(ncid, 'so2_flux_var', varid)
+      ! Writing shape (lon=1, lat=1, time=2)
+      so2_flux = [1.0d0]
+      cf_rc = nf90_put_var(ncid, varid, [1.0d0, 2.0d0])
+      cf_rc = nf90_close(ncid)
+    end block
 
     ! Create yaml config
     open(unit=99, file=trim(config_file), status='replace')
