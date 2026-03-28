@@ -109,6 +109,7 @@ program test_tide_roundtrip
     call ESMF_MeshAddElements(mesh, elementIds=integer_empty, &
          elementTypes=integer_empty, elementConn=integer_empty, rc=rc)
   end if
+  call ESMF_MeshCommit(mesh, rc=rc)
 
   call ESMF_TimeSet(startTime, yy=2000, mm=1, dd=1, s=0, rc=rc)
   call ESMF_TimeSet(stopTime, yy=2000, mm=1, dd=2, s=0, rc=rc)
