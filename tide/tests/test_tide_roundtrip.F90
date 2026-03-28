@@ -18,7 +18,7 @@ program test_tide_roundtrip
   integer :: ncid, dimid, varid, cf_rc
   integer :: my_task, n_tasks, comm
   type(ESMF_VM) :: vm
-  real(r8) :: so2_flux(1)
+  real(r8) :: flux_data(1, 1, 2)
   integer, allocatable :: integer_empty(:)
   real(r8), allocatable :: real_empty(:)
 
@@ -70,8 +70,9 @@ program test_tide_roundtrip
 
       cf_rc = nf90_inq_varid(ncid, 'so2_flux_var', varid)
       ! Writing shape (lon=1, lat=1, time=2)
-      so2_flux = [1.0d0]
-      cf_rc = nf90_put_var(ncid, varid, [1.0d0, 2.0d0])
+    flux_data(1,1,1) = 1.0d0
+    flux_data(1,1,2) = 2.0d0
+    cf_rc = nf90_put_var(ncid, varid, flux_data)
       cf_rc = nf90_close(ncid)
     end block
 
@@ -101,8 +102,11 @@ program test_tide_roundtrip
     call ESMF_MeshAddNodes(mesh, [1,2,3,4], &
          [0.0d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0, 1.0d0, 0.0d0, 1.0d0], &
          [0,0,0,0], rc=rc)
+    if (rc /= ESMF_SUCCESS) print *, "ESMF_MeshAddNodes failed on task 0"
+
     call ESMF_MeshAddElements(mesh, [1], &
          [ESMF_MESHELEMTYPE_QUAD], [1,2,3,4], rc=rc)
+    if (rc /= ESMF_SUCCESS) print *, "ESMF_MeshAddElements failed on task 0"
   else
     call ESMF_MeshAddNodes(mesh, integer_empty, &
          real_empty, integer_empty, rc=rc)
