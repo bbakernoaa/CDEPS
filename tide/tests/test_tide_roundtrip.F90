@@ -98,16 +98,16 @@ program test_tide_roundtrip
   ! Create a dummy mesh with 1 element (4 nodes) on task 0 only
   mesh = ESMF_MeshCreate(parametricDim=2, spatialDim=2, rc=rc)
   if (my_task == 0) then
-    call ESMF_MeshAddNodes(mesh, nodeIds=[1,2,3,4], &
-         nodeCoords=[0.0d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0, 1.0d0, 0.0d0, 1.0d0], &
-         nodeOwners=[0,0,0,0], rc=rc)
-    call ESMF_MeshAddElements(mesh, elementIds=[1], &
-         elementTypes=[ESMF_MESHELEMTYPE_QUAD], elementConn=[1,2,3,4], rc=rc)
+    call ESMF_MeshAddNodes(mesh, [1,2,3,4], &
+         [0.0d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0, 1.0d0, 0.0d0, 1.0d0], &
+         [0,0,0,0], rc=rc)
+    call ESMF_MeshAddElements(mesh, [1], &
+         [ESMF_MESHELEMTYPE_QUAD], [1,2,3,4], rc=rc)
   else
-    call ESMF_MeshAddNodes(mesh, nodeIds=integer_empty, &
-         nodeCoords=real_empty, nodeOwners=integer_empty, rc=rc)
-    call ESMF_MeshAddElements(mesh, elementIds=integer_empty, &
-         elementTypes=integer_empty, elementConn=integer_empty, rc=rc)
+    call ESMF_MeshAddNodes(mesh, integer_empty, &
+         real_empty, integer_empty, rc=rc)
+    call ESMF_MeshAddElements(mesh, integer_empty, &
+         integer_empty, integer_empty, rc=rc)
   end if
   call ESMF_MeshCommit(mesh, rc)
 
