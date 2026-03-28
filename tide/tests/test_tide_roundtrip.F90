@@ -69,10 +69,13 @@ program test_tide_roundtrip
 
   call ESMF_VMBroadcast(vm, config_file, 256, 0, rc=rc)
 
-  ! Create a dummy mesh with 1 element
+  ! Create a dummy mesh with 1 element (4 nodes)
   mesh = ESMF_MeshCreate(parametricDim=2, spatialDim=2, rc=rc)
-  call ESMF_MeshAddNodes(mesh, elementCount=1, nodeId=[1], nodeCoord=[0.0d0, 0.0d0], nodeOwner=[0], rc=rc)
-  call ESMF_MeshAddElements(mesh, elementCount=1, elementIds=[1], elementTypes=[ESMF_MESHELEMTYPE_QUAD], elementConn=[1,1,1,1], rc=rc)
+  call ESMF_MeshAddNodes(mesh, nodeCount=4, nodeId=[1,2,3,4], &
+       nodeCoord=[0.0d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0, 1.0d0, 0.0d0, 1.0d0], &
+       nodeOwner=[0,0,0,0], rc=rc)
+  call ESMF_MeshAddElements(mesh, elementCount=1, elementIds=[1], &
+       elementTypes=[ESMF_MESHELEMTYPE_QUAD], elementConn=[1,2,3,4], rc=rc)
 
   call ESMF_TimeSet(startTime, yy=2000, mm=1, dd=1, s=0, rc=rc)
   call ESMF_TimeSet(stopTime, yy=2000, mm=1, dd=2, s=0, rc=rc)
