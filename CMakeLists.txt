@@ -138,6 +138,26 @@ target_link_libraries(test_tide PRIVATE
 )
 add_test(NAME tide_api_test COMMAND test_tide)
 
+add_executable(test_tide_roundtrip tide/tests/test_tide_roundtrip.F90)
+target_include_directories(test_tide_roundtrip PRIVATE
+  ${ESMF_F90COMPILEPATHS}
+  ${PIO_Fortran_INCLUDE_DIR}
+  ${NETCDF_Fortran_INCLUDE_DIR}
+)
+target_link_libraries(test_tide_roundtrip PRIVATE
+  tide
+  dshr
+  streams
+  cdeps_share
+  ${ESMF_F90ESMFLINKLIBS}
+  ${PIO_Fortran_LIBRARY}
+  ${PIO_C_LIBRARY}
+  ${NETCDF_Fortran_LIBRARY}
+  ${MPI_Fortran_LIBRARIES}
+  m
+)
+add_test(NAME tide_api_roundtrip COMMAND test_tide_roundtrip)
+
 # -----------------------------------------------------------------------
 # NetCDF-Fortran (required by CF property tests)
 # -----------------------------------------------------------------------
@@ -187,10 +207,10 @@ macro(add_cf_test test_name src_file)
 endmacro()
 
 # CF property tests (tasks 2–13)
-#add_cf_test(test_cf_prop1_complete_metadata
-#  tide/tests/test_cf_property_1_complete_metadata.F90)
-#add_cf_test(test_cf_prop2_missing_attrs
-#  tide/tests/test_cf_property_2_missing_attrs.F90)
+add_cf_test(test_cf_prop1_complete_metadata
+  tide/tests/test_cf_property_1_complete_metadata.F90)
+add_cf_test(test_cf_prop2_missing_attrs
+  tide/tests/test_cf_property_2_missing_attrs.F90)
 add_cf_test(test_cf_prop3_stdname_match
   tide/tests/test_cf_property_3_stdname_match.F90)
 add_cf_test(test_cf_prop4_field_map
@@ -211,26 +231,26 @@ add_cf_test(test_cf_prop11_coord_detect
   tide/tests/test_cf_property_11_coord_detect.F90)
 add_cf_test(test_cf_prop12_monotonicity
   tide/tests/test_cf_property_12_monotonicity.F90)
-#add_cf_test(test_cf_prop13_multidim
-#  tide/tests/test_cf_property_13_multidim.F90)
+add_cf_test(test_cf_prop13_multidim
+  tide/tests/test_cf_property_13_multidim.F90)
 add_cf_test(test_cf_prop14_vertical_dim
   tide/tests/test_cf_property_14_vertical_dim.F90)
 add_cf_test(test_cf_prop15_dim_reorder
   tide/tests/test_cf_property_15_dim_reorder.F90)
-#add_cf_test(test_cf_prop16_caching
-#  tide/tests/test_cf_property_16_caching.F90)
-#add_cf_test(test_cf_prop17_cache_invalidation
-#  tide/tests/test_cf_property_17_cache_invalidation.F90)
+add_cf_test(test_cf_prop16_caching
+  tide/tests/test_cf_property_16_caching.F90)
+add_cf_test(test_cf_prop17_cache_invalidation
+  tide/tests/test_cf_property_17_cache_invalidation.F90)
 add_cf_test(test_cf_prop18_success_log
   tide/tests/test_cf_property_18_success_log.F90)
 add_cf_test(test_cf_prop19_failure_log
   tide/tests/test_cf_property_19_failure_log.F90)
 add_cf_test(test_cf_prop20_fieldmap_log
   tide/tests/test_cf_property_20_fieldmap_log.F90)
-#add_cf_test(test_cf_prop21_compliance
-#  tide/tests/test_cf_property_21_compliance.F90)
-#add_cf_test(test_cf_prop22_noncf_fallback
-#  tide/tests/test_cf_property_22_noncf_fallback.F90)
+add_cf_test(test_cf_prop21_compliance
+  tide/tests/test_cf_property_21_compliance.F90)
+add_cf_test(test_cf_prop22_noncf_fallback
+  tide/tests/test_cf_property_22_noncf_fallback.F90)
 
 # Install rules
 install(TARGETS tide cdeps_share streams dshr yaml-cpp EXPORT tide DESTINATION lib)
