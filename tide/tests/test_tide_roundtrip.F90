@@ -25,7 +25,7 @@ program test_tide_roundtrip
   allocate(integer_empty(0))
   allocate(real_empty(0))
 
-  call ESMF_Initialize(rc=rc)
+  call ESMF_Initialize(defaultCalendar=ESMF_CALKIND_NOLEAP, rc=rc)
   if (rc /= ESMF_SUCCESS) stop 1
 
   call ESMF_VMGetCurrent(vm, rc=rc)
