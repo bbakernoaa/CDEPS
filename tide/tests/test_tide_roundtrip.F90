@@ -71,9 +71,9 @@ program test_tide_roundtrip
 
   ! Create a dummy mesh with 1 element (4 nodes)
   mesh = ESMF_MeshCreate(parametricDim=2, spatialDim=2, rc=rc)
-  call ESMF_MeshAddNodes(mesh, nodeCount=4, nodeId=[1,2,3,4], &
-       nodeCoord=[0.0d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0, 1.0d0, 0.0d0, 1.0d0], &
-       nodeOwner=[0,0,0,0], rc=rc)
+  call ESMF_MeshAddNodes(mesh, nodeCount=4, nodeIds=[1,2,3,4], &
+       nodeCoords=[0.0d0, 0.0d0, 1.0d0, 0.0d0, 1.0d0, 1.0d0, 0.0d0, 1.0d0], &
+       nodeOwners=[0,0,0,0], rc=rc)
   call ESMF_MeshAddElements(mesh, elementCount=1, elementIds=[1], &
        elementTypes=[ESMF_MESHELEMTYPE_QUAD], elementConn=[1,2,3,4], rc=rc)
 
