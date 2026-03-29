@@ -785,6 +785,12 @@ contains
        dSec = delta *   60.0_SHR_KIND_R8
     elseif (trim(units) == 'seconds') then
        dSec = delta *    1.0_SHR_KIND_R8
+    elseif (trim(units) == 'weeks'  ) then
+       dSec = delta * SHR_CONST_CDAY * 7.0_SHR_KIND_R8
+    elseif (trim(units) == 'months'  ) then
+       dSec = delta * SHR_CONST_CDAY * 30.0_SHR_KIND_R8
+    elseif (trim(units) == 'years'  ) then
+       dSec = delta * SHR_CONST_CDAY * 365.0_SHR_KIND_R8
     else
        call shr_sys_abort(trim(subname)//' ERROR: unrecognized time units '//trim(units))
     endif
@@ -872,6 +878,12 @@ contains
        dSec = delta *   60.0_SHR_KIND_R8
     elseif (trim(units) == 'seconds') then
        dSec = delta *    1.0_SHR_KIND_R8
+    elseif (trim(units) == 'weeks'  ) then
+       dSec = delta * SHR_CONST_CDAY * 7.0_SHR_KIND_R8
+    elseif (trim(units) == 'months'  ) then
+       dSec = delta * SHR_CONST_CDAY * 30.0_SHR_KIND_R8
+    elseif (trim(units) == 'years'  ) then
+       dSec = delta * SHR_CONST_CDAY * 365.0_SHR_KIND_R8
     else
        call shr_sys_abort(trim(subname)//' ERROR: unrecognized time units '//trim(units))
     endif
@@ -976,6 +988,12 @@ contains
        call ESMF_TimeIntervalSet(dt,m=delta)
     elseif (trim(units) == 'seconds') then
        call ESMF_TimeIntervalSet(dt,s=delta)
+    elseif (trim(units) == 'weeks'  ) then
+       call ESMF_TimeIntervalSet(dt,d=delta * 7)
+    elseif (trim(units) == 'months' ) then
+       call ESMF_TimeIntervalSet(dt,mm=delta)
+    elseif (trim(units) == 'years'  ) then
+       call ESMF_TimeIntervalSet(dt,yy=delta)
     else
        call shr_sys_abort(trim(subname)//' ERROR: unrecognized time units '//trim(units))
     endif
@@ -1042,6 +1060,12 @@ contains
        call ESMF_TimeIntervalSet(dt,m=delta)
     elseif (trim(units) == 'seconds') then
        call ESMF_TimeIntervalSet(dt,s=delta)
+    elseif (trim(units) == 'weeks'  ) then
+       call ESMF_TimeIntervalSet(dt,d=delta * 7)
+    elseif (trim(units) == 'months' ) then
+       call ESMF_TimeIntervalSet(dt,mm=delta)
+    elseif (trim(units) == 'years'  ) then
+       call ESMF_TimeIntervalSet(dt,yy=delta)
     else
        call shr_sys_abort(trim(subname)//' ERROR: unrecognized time units '//trim(units))
     endif
