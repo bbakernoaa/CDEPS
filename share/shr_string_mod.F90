@@ -718,12 +718,56 @@ contains
     bdate = 0
     bsec = 0.0_SHR_KIND_R8
 
+    i = shr_string_lastIndex(string,'years ')
+    if (i > 0) unit = 'years'
+    i = shr_string_lastIndex(string,'year ')
+    if (i > 0) unit = 'years'
+
+    i = shr_string_lastIndex(string,'months ')
+    if (i > 0) unit = 'months'
+    i = shr_string_lastIndex(string,'month ')
+    if (i > 0) unit = 'months'
+
+    i = shr_string_lastIndex(string,'weeks ')
+    if (i > 0) unit = 'weeks'
+    i = shr_string_lastIndex(string,'week ')
+    if (i > 0) unit = 'weeks'
+
+    i = shr_string_lastIndex(string,'d ')
+    if (i == 1 .or. (i > 1 .and. string(i-1:i-1) == ' ')) unit = 'days'
+    i = shr_string_lastIndex(string,'day ')
+    if (i > 0) unit = 'days'
     i = shr_string_lastIndex(string,'days ')
     if (i > 0) unit = 'days'
+
+    i = shr_string_lastIndex(string,'h ')
+    if (i == 1 .or. (i > 1 .and. string(i-1:i-1) == ' ')) unit = 'hours'
+    i = shr_string_lastIndex(string,'hr ')
+    if (i > 0) unit = 'hours'
+    i = shr_string_lastIndex(string,'hrs ')
+    if (i > 0) unit = 'hours'
+    i = shr_string_lastIndex(string,'hour ')
+    if (i > 0) unit = 'hours'
     i = shr_string_lastIndex(string,'hours ')
     if (i > 0) unit = 'hours'
+
+    i = shr_string_lastIndex(string,'min ')
+    if (i > 0) unit = 'minutes'
+    i = shr_string_lastIndex(string,'mins ')
+    if (i > 0) unit = 'minutes'
+    i = shr_string_lastIndex(string,'minute ')
+    if (i > 0) unit = 'minutes'
     i = shr_string_lastIndex(string,'minutes ')
     if (i > 0) unit = 'minutes'
+
+    i = shr_string_lastIndex(string,'s ')
+    if (i == 1 .or. (i > 1 .and. string(i-1:i-1) == ' ')) unit = 'seconds'
+    i = shr_string_lastIndex(string,'sec ')
+    if (i > 0) unit = 'seconds'
+    i = shr_string_lastIndex(string,'secs ')
+    if (i > 0) unit = 'seconds'
+    i = shr_string_lastIndex(string,'second ')
+    if (i > 0) unit = 'seconds'
     i = shr_string_lastIndex(string,'seconds ')
     if (i > 0) unit = 'seconds'
 
