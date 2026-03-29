@@ -26,8 +26,11 @@ program test_cf_property_6_unit_comparison
   call run_incompatible_units(rc)
   if (rc == 0) then; npass = npass + 1; else; nfail = nfail + 1; overall_rc = 1; end if
 
+  call run_empty_units(rc)
+  if (rc == 0) then; npass = npass + 1; else; nfail = nfail + 1; overall_rc = 1; end if
+
   write(*,'(a,i0,a,i0,a,i0,a)') &
-    'Property 6: ', npass, '/3 passed (', nfail, ' failed)'
+    'Property 6: ', npass, '/4 passed (', nfail, ' failed)'
 
   call ESMF_Finalize(rc=rc)
   if (overall_rc /= 0) stop 1
@@ -87,5 +90,24 @@ contains
       write(*,*) 'FAIL incompatible: expected CF_ERR_INCOMPATIBLE_UNITS, got', cf_rc; rc = 1
     end if
   end subroutine run_incompatible_units
+
+  subroutine run_empty_units(rc)
+    integer, intent(out) :: rc
+    logical :: compatible, conversion_needed
+    integer :: cf_rc
+    type(cf_detection_config_t) :: cfg
+    rc = 0
+    cfg%mode = 'auto'; cfg%cache_enabled = .true.; cfg%log_level = 0
+    call cf_detection_init(cfg, cf_rc)
+
+    call cf_validate_units('', 'm/s', compatible, conversion_needed, cf_rc)
+    if (compatible)              then; write(*,*) 'FAIL empty: compatible=T'; rc = 1; end if
+    if (cf_rc /= CF_ERR_INCOMPATIBLE_UNITS) then
+      write(*,*) 'FAIL empty: expected CF_ERR_INCOMPATIBLE_UNITS, got', cf_rc; rc = 1
+    end if
+
+    call cf_validate_units('', '', compatible, conversion_needed, cf_rc)
+    if (.not. compatible)        then; write(*,*) 'FAIL empty2: compatible=F'; rc = 1; end if
+  end subroutine run_empty_units
 
 end program test_cf_property_6_unit_comparison

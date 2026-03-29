@@ -28,8 +28,11 @@ program test_cf_property_5_string_match
   call run_mixed_tests(rc)
   if (rc == 0) then; npass = npass + 1; else; nfail = nfail + 1; overall_rc = 1; end if
 
+  call run_tab_tests(rc)
+  if (rc == 0) then; npass = npass + 1; else; nfail = nfail + 1; overall_rc = 1; end if
+
   write(*,'(a,i0,a,i0,a,i0,a)') &
-    'Property 5: ', npass, '/3 passed (', nfail, ' failed)'
+    'Property 5: ', npass, '/4 passed (', nfail, ' failed)'
 
   call ESMF_Finalize(rc=rc)
   if (overall_rc /= 0) stop 1
@@ -142,5 +145,25 @@ contains
 
     call cf_clear_cache(cache)
   end subroutine run_mixed_tests
+
+  ! Test tabs and multiple spaces
+  subroutine run_tab_tests(rc)
+    integer, intent(out) :: rc
+    type(cf_metadata_cache_t) :: cache
+    type(cf_detection_config_t) :: cfg
+    integer :: cf_rc
+
+    rc = 0
+    cfg%mode = 'auto'; cfg%cache_enabled = .true.; cfg%log_level = 0
+    call cf_detection_init(cfg, cf_rc)
+
+    call build_single_var_cache('air temperature', cache)
+
+    call assert_match('tab',             cache, 'air'//achar(9)//'temperature',  .true., rc)
+    call assert_match('multiple_spaces', cache, 'air    temperature',  .true., rc)
+    call assert_match('tabs_and_spaces', cache, 'air '//achar(9)//'   temperature',  .true., rc)
+
+    call cf_clear_cache(cache)
+  end subroutine run_tab_tests
 
 end program test_cf_property_5_string_match
