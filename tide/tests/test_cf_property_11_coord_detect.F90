@@ -26,8 +26,11 @@ program test_cf_property_11_coord_detect
   call run_no_coords_test(rc)
   if (rc == 0) then; npass = npass + 1; else; nfail = nfail + 1; overall_rc = 1; end if
 
+  call run_mixed_coord_test(rc)
+  if (rc == 0) then; npass = npass + 1; else; nfail = nfail + 1; overall_rc = 1; end if
+
   write(*,'(a,i0,a,i0,a,i0,a)') &
-    'Property 11: ', npass, '/3 passed (', nfail, ' failed)'
+    'Property 11: ', npass, '/4 passed (', nfail, ' failed)'
 
   call ESMF_Finalize(rc=rc)
   if (overall_rc /= 0) stop 1
@@ -138,5 +141,39 @@ contains
     call cf_clear_cache(cache)
     if (allocated(coords)) deallocate(coords)
   end subroutine run_no_coords_test
+
+  subroutine run_mixed_coord_test(rc)
+    integer, intent(out) :: rc
+    type(cf_metadata_cache_t) :: cache
+    type(cf_coordinate_info_t), allocatable :: coords(:)
+    type(cf_detection_config_t) :: cfg
+    integer :: cf_rc
+
+    rc = 0
+    ! Variable named 'emission_co' but with standard_name='longitude'
+    cache%nvars = 1; cache%is_cf_compliant = .true.
+    cache%filename = 'synthetic'; cache%cf_version = 'CF-1.8'
+    allocate(cache%vars(1))
+    cache%vars(1)%var_name          = 'emission_co'
+    cache%vars(1)%standard_name     = 'longitude'
+    cache%vars(1)%has_standard_name = .true.
+    cache%vars(1)%has_long_name     = .false.
+    cache%vars(1)%has_units         = .false.
+    cache%vars(1)%ndims             = 1
+
+    cfg%mode = 'auto'; cfg%cache_enabled = .true.; cfg%log_level = 0
+    call cf_detection_init(cfg, cf_rc)
+
+    call cf_detect_coordinates(cache, coords, cf_rc)
+    if (cf_rc /= CF_SUCCESS) then
+      write(*,*) 'FAIL mixed coord: detect returned rc=', cf_rc; rc = 1
+    end if
+    if (.not. allocated(coords) .or. size(coords) /= 1) then
+      write(*,*) 'FAIL mixed coord: expected 1 coord'; rc = 1
+    end if
+
+    call cf_clear_cache(cache)
+    if (allocated(coords)) deallocate(coords)
+  end subroutine run_mixed_coord_test
 
 end program test_cf_property_11_coord_detect
